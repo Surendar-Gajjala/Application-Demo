@@ -1,0 +1,16 @@
+{
+  "from": { "entity": "part", "alias": "part" },
+  "select": [
+    { "selectType": "property", "alias": "part_number", "property": "part.part_number" },
+    { "selectType": "property", "alias": "manufacturer", "property": "part.manufacturer" },
+    { "selectType": "property", "alias": "description", "property": "part.description" },
+    { "selectType": "property", "alias": "z2_properties_comparison", "property": "part.z2_properties_comparison" },
+    { "selectType": "property", "property": "part.country_of_origin", "alias": "part__country_of_origin" },
+    { "selectType": "property", "property": "part.sourcing_type", "alias": "part__sourcing_type" },
+    { "selectType": "property", "property": "part.supply_chain_risk", "alias": "part__supply_chain_risk" },
+    { "selectType": "property", "property": "part.lifecycle.status", "alias": "part__lifecycle__status" },
+    { "selectType": "property", "property": "part.id", "alias": "part__id" }
+  ],
+  "output": { "format": "table" },
+  "context": { "tableId": "objecttype-view-part" }
+}

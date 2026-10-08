@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: item-integration
+  config:
+    # Local development: read KEY=value pairs from a git-ignored .env file if present.
+    # Real environment variables still take precedence.
+    import: optional:file:.env[.properties]
+
+server:
+  port: ${SERVER_PORT:8080}
+  # Item Hierarchy pages are large, repetitive JSON trees; gzip shrinks them substantially.
+  compression:
+    enabled: true
+    mime-types: application/json
+    min-response-size: 2KB
+  error:
+    include-message: never
+    include-stacktrace: never
+
+# Central hosted-server configuration. Values come only from the environment.
+external:
+  api:
+    url: ${EXTERNAL_API_URL:}
+    graph-url: ${EXTERNAL_API_GRAPH_URL:}
+    object-url: ${EXTERNAL_API_OBJECT_URL:}
+    token: ${EXTERNAL_API_TOKEN:}
+    connect-timeout: ${EXTERNAL_API_CONNECT_TIMEOUT:5s}
+    read-timeout: ${EXTERNAL_API_READ_TIMEOUT:30s}
+
+logging:
+  level:
+    # Keep HTTP client wire/header logging off so the Authorization header is never logged.
+    org.springframework.web.client: INFO
+    org.apache.hc: INFO
