@@ -1,18 +1,20 @@
-# Item Integration
+# Item Integration (backend)
 
-Read-only, database-free Spring Boot service that fetches Item data from the hosted server in **one** authenticated call, maps it to the internal Item model, and serves it at `GET /api/items`. Requirements: [CLAUDE.md](../CLAUDE.md).
+Read-only, database-free Spring Boot service. It calls the hosted data platform with a Bearer token, maps each response into its own models and serves Items, Parts, Sites, the Item Hierarchy and item details to the [frontend](../frontend). Each local request makes one hosted call (two for an Item Hierarchy page); nothing is persisted. Requirements and project guide: [CLAUDE.md](../CLAUDE.md).
 
 ## Run
 
 Requires JDK 17+ and Maven. From this `backend/` folder, either put the values in `backend/.env` (git-ignored, see [.env.example](.env.example)) or export them:
 
 ```bash
-export EXTERNAL_API_URL="https://<hosted-server>/<items-endpoint>"   # already URL-encoded
-export EXTERNAL_API_TOKEN="<bearer token>"                          # secret, never commit
+export EXTERNAL_API_URL="https://<host>/api/v1/platform/core/query-config-v2/execute"
+export EXTERNAL_API_GRAPH_URL="https://<host>/api/v1/platform/core/graph/match/execute"
+export EXTERNAL_API_OBJECT_URL="https://<host>/api/v1/platform/core/objects/partial"
+export EXTERNAL_API_TOKEN="<bearer token>"      # secret: never commit, expires after ~24h
 mvn spring-boot:run
 ```
 
-Call `GET http://localhost:8080/api/items`, or run the [frontend](../frontend) for the UI. `.env` is read from the working directory, so start the app from `backend/`.
+Call `GET http://localhost:8080/api/items`, or run the [frontend](../frontend) for the UI. Restart after changing `.env`. `.env` is read from the working directory, so start the app from `backend/`.
 
 `EXTERNAL_API_GRAPH_URL` (required) is the hosted graph-match endpoint (Item Hierarchy and item Sources); `EXTERNAL_API_OBJECT_URL` (required) is the single-object endpoint (item Overview). Both use the same token.
 
@@ -36,6 +38,8 @@ Every entity uses the same `EXTERNAL_API_URL` and token; only the query-config p
 ## Item Hierarchy (`GET /api/item-hierarchy?page=&size=`)
 
 One page of top-level products (`item_bom` roots), each with its full tree: BOM child items (`item_bom`, many-to-many, `qty` on the edge) and sourced parts (`item_sources`, one-to-many). Each page makes **two** hosted calls: the anchors query (`item-hierarchy-anchors.json`, which holds the scope id) and one graph traversal for all anchors (`item-hierarchy-graph.json`, max depth 6). `hierarchy.mapper.HierarchyTreeBuilder` turns the flat nodes/edges into nested `HierarchyNodeDto`s; a shared item is repeated under every parent with its own qty, and each occurrence has a unique `key` (path of node ids). Status-like codes become readable labels via `common.mapping.CodeLabels` (unknown codes pass through). Responses are gzip-compressed.
+
+`GET /api/item-hierarchy/products?page=&size=` returns only the top-level product numbers (one anchors query, no traversal); the dashboard uses it for the BOM count.
 
 ## Item details (`GET /api/items/{id}/overview | sources`)
 
@@ -79,8 +83,10 @@ To add another entity: add `<entity>-query.json` and an `ExternalQuery` constant
 | Timeout | 504 `ITEM_SOURCE_TIMEOUT` |
 | Connection failure | 503 `ITEM_SOURCE_UNAVAILABLE` |
 
-## To confirm against the real hosted API
+## Hosted data notes (confirmed against the real API)
 
-- **Request:** the client sends one `POST` to `EXTERNAL_API_URL` with the query in [item-query.json](src/main/resources/external-queries/item-query.json) (`output.format: table`). Each `select[].alias` must match a `@JsonProperty` name in `ExternalItemRecord`.
-- **Result row shape:** both object rows (`{"item_number": ...}`) and positional rows (arrays whose columns are named by `properties`) are supported.
-- **ODM fields:** exposed as lists (`odmName: string[]`, `odmActive: boolean[]`), accepting `[]`, `"[]"`, a single value, or many values. Narrow the type once the real format is confirmed.
+- **Requests:** query-config and graph calls are `POST`s with the payload file as the body; the object call is a `GET`. Each payload's `select[].alias` (or graph `select` property) must match a `@JsonProperty` in its external record DTO.
+- **Rows:** the hosted server returns object rows keyed by alias; positional rows named by `properties` are also supported.
+- **ODM fields** arrive as JSON-encoded strings (`"[]"`, `"[\"true\"]"`) and are exposed as lists (`odmName: string[]`, `odmActive: boolean[]`).
+- **Unknown object id:** the object endpoint answers with an empty 200, which the API turns into 404 `ITEM_NOT_FOUND`.
+- **Expired token:** every hosted call returns 401, shown as 502 `ITEM_SOURCE_ACCESS_DENIED`.

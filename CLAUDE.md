@@ -1,5 +1,101 @@
 # External Item Data Integration — Requirements & Instructions
 
+This file has two parts:
+
+- **Project guide**: how the repository is built today, how to run and test it, and the decisions made while building it. Keep it current when the code changes.
+- **Requirements** (sections 1–32): the original specification. The guide records where the implementation extends it or deviates from it.
+
+---
+
+# Project guide
+
+## Layout
+
+```text
+backend/    Spring Boot 3.3, Java 17, Maven     package com.demo.itemintegration
+frontend/   React 19, TypeScript, Tailwind 4, Vite 6, TanStack Query, React Router
+README.md   overview, configuration, run and test instructions
+```
+
+Backend packages: `config` (central hosted-server settings), `external` (the only code that calls the hosted server, plus external DTOs and payload enums), `common` (paging, value normalisation, code labels, error handling), then one package per feature: `item`, `part`, `site`, `hierarchy`, `itemdetail`. Hosted request payloads are JSON files in `backend/src/main/resources/external-queries/`.
+
+Frontend: `src/pages` (one per tab), `src/components/table` (shared `DataTable`, `PagedEntityPage`, `PaginationFooter`, `SearchBox`, `LoadError`, cell helpers), `src/components/<feature>` (column definitions and feature components), `src/services` (axios calls to the local API), `src/hooks` (TanStack Query hooks), `src/types` (local API contracts).
+
+## Commands
+
+```bash
+# Backend: run from backend/ so it reads backend/.env. JAVA_HOME must be JDK 17+
+# (this machine's default JAVA_HOME is JDK 11; JDK 17 is in C:\Program Files\OpenLogic\jdk-17.0.10.7-hotspot).
+cd backend && mvn spring-boot:run          # :8080, add the jdwp agent on :5005 for debugging
+cd backend && mvn test
+
+# Frontend (Node 22.3+)
+cd frontend && npm run dev                 # :3000, proxies /api to :8080
+cd frontend && npm run typecheck && npm run test
+```
+
+Always run both test suites after a change. Restart the backend after changing backend code or `backend/.env`.
+
+## Configuration and secrets
+
+Central configuration is `config/ExternalApiProperties` (prefix `external.api`), filled from environment variables or `backend/.env` (git-ignored):
+
+| Variable | Used for |
+|---|---|
+| `EXTERNAL_API_URL` | Query-config endpoint: Items, Parts, Sites, hierarchy anchors |
+| `EXTERNAL_API_GRAPH_URL` | Graph-match endpoint: Item Hierarchy, item Sources |
+| `EXTERNAL_API_OBJECT_URL` | Single-object endpoint: item Overview (`/{id}` is appended) |
+| `EXTERNAL_API_TOKEN` | Bearer token for all three |
+
+- The token only ever goes in `backend/.env`. `backend/.env.example` is committed and must keep `EXTERNAL_API_TOKEN=` empty.
+- Never print the token. To check it, decode only its `exp` claim. Hosted tokens expire after about 24 hours, and the symptom is a 401 from every hosted call (shown as 502 `ITEM_SOURCE_ACCESS_DENIED`).
+- `ExternalApiProperties.toString()` masks the token. Keep HTTP client wire logging off.
+
+## Local API (implemented)
+
+| Endpoint | Hosted calls per request | Notes |
+|---|---|---|
+| `GET /api/items?page&size` | 1 query-config | `item-query.json` |
+| `GET /api/parts?page&size` | 1 query-config | `part-query.json` |
+| `GET /api/sites?page&size` | 1 query-config | `site-query.json`; hosted environment currently has 0 sites |
+| `GET /api/item-hierarchy?page&size` | 2: anchors query + 1 graph traversal | tree of products → BOM items (qty) → sourced parts |
+| `GET /api/item-hierarchy/products?page&size` | 1 query-config | top-level product numbers only; used for the dashboard count |
+| `GET /api/items/{id}/overview` | 1 object fetch | about 60 properties grouped into sections; 404 `ITEM_NOT_FOUND` for unknown ids |
+| `GET /api/items/{id}/sources` | 1 graph traversal | the item's sourced parts, as `PartDto` |
+
+Paged responses use `common.dto.PageResponse`: `count, items, page (0-based), size (1–100), totalItems, totalPages, hasMore`. All errors go through `common.error.GlobalExceptionHandler` as RFC 7807 problems with a stable `code` and no upstream details.
+
+## Decisions that extend or differ from the requirements
+
+- **"One API call" means one hosted call per local request, never one per row.** Lists page on the server (the hosted API returns `totalElements`); the frontend never loads the whole dataset.
+- **Item Hierarchy needs two hosted calls per page** (anchors, then one graph traversal for all of them), as specified in the hierarchy requirements. `item_bom` is many-to-many, so a shared item is repeated under each parent with its own qty; each occurrence has a unique `key` (path of node ids). Parts are shown inside their item's row (Part Number / Manufacturer columns), not as tree rows.
+- **Query payloads live in the backend**, one file per entity or traversal, registered in `external.ExternalQuery` or `external.GraphQuery`. The frontend never sees external field names or payloads.
+- **Graph traversals for one item anchor on its id** (`anchorProperty: "id"`), so a tab needs no extra call to look up the item number.
+- **IDs are `Long`** even where the spec says Int: hosted ids exceed the int range.
+- **Display labels:** status-like codes become readable labels in the backend via `common.mapping.CodeLabels` (for example `PRODN_APPROVED` → Production Approved, `N_A` → N/A). Unknown codes pass through unchanged. Entity enums (`SourcingType`, `SupplyChainRisk`, `LifecycleStatus`, `SiteType`, `AvailabilityRisk`) serialise as their spec labels.
+- **The hosted object endpoint returns an empty 200 for an unknown id.** `fetchObject` returns `Optional.empty()`, and the service turns that (or a non-item object) into 404.
+- **Removed on request:** the item details "Where Used" tab (item_bom ancestors), the Add Item button, the Actions and ID columns, and "Go to page" on the Item Hierarchy.
+
+## How to add an entity or tab
+
+1. Add the payload JSON under `external-queries/` and a constant in `ExternalQuery` (or `GraphQuery`).
+2. Add an external record DTO in `external/dto` whose `@JsonProperty` names are the hosted aliases. External names live only there.
+3. Add the model, DTO and mapper (reuse `ExternalValues`, `CodeLabels`, and existing enum mappers), then the service (one client call, return `PageResponse`) and the controller (`@Min/@Max(PageResponse.MAX_SIZE)` paging).
+4. Frontend: add a type, service, hook and column list, then a page built on `PagedEntityPage`; add the route in `App.tsx` and the link in `Sidebar.tsx`.
+5. Add tests on both sides, using a real hosted response shape where possible.
+
+Before writing a mapper, look at a real hosted response with a read-only call: several shapes differed from the samples (for example ODM values arrive as strings like `"[\"true\"]"`).
+
+## Known gaps
+
+- The Item Hierarchy table config's `statisticProperties` (counts by status and type) are not shown.
+- Search filters the current page only, on every tab.
+- `backend/src/main/resources/static/index.html` is the original single-page table from before the React app; it is unused by the frontend.
+
+---
+
+# Requirements
+
 ## 1. Objective
 
 Build a Spring Boot application that retrieves Item data from an external hosted server and exposes the data through a local REST API.
