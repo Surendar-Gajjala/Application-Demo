@@ -17,3 +17,13 @@ export const itemLink = (itemId: number | null, itemNumber: string | null) =>
       {itemNumber}
     </Link>
   );
+
+/** A part number that opens the part details view; plain key text when the part id is unknown. */
+export const partLink = (partId: number | null, partNumber: string | null) =>
+  partId === null || !partNumber ? (
+    keyCell(partNumber)
+  ) : (
+    <Link to={`/parts/${partId}`} className="text-blue-600 hover:underline focus-visible:underline focus-visible:outline-none">
+      {partNumber}
+    </Link>
+  );

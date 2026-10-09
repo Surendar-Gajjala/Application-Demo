@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.demo.itemintegration.external.ExternalApiException;
 import com.demo.itemintegration.itemdetail.ItemNotFoundException;
+import com.demo.itemintegration.partdetail.PartNotFoundException;
 
 /**
  * Converts hosted-server failures into RFC 7807 problem responses for the frontend.
@@ -37,6 +38,14 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "No item exists with this id.");
         problem.setTitle(HttpStatus.NOT_FOUND.getReasonPhrase());
         problem.setProperty("code", "ITEM_NOT_FOUND");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
+    }
+
+    @ExceptionHandler(PartNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handlePartNotFound(PartNotFoundException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "No part exists with this id.");
+        problem.setTitle(HttpStatus.NOT_FOUND.getReasonPhrase());
+        problem.setProperty("code", "PART_NOT_FOUND");
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
     }
 

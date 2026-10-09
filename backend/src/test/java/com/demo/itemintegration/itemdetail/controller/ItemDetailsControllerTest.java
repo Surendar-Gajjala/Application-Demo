@@ -19,6 +19,8 @@ import com.demo.itemintegration.external.ExternalApiException;
 import com.demo.itemintegration.external.ExternalApiException.Reason;
 import com.demo.itemintegration.itemdetail.ItemNotFoundException;
 import com.demo.itemintegration.itemdetail.dto.ItemOverviewDto;
+import com.demo.itemintegration.itemdetail.dto.OverviewField;
+import com.demo.itemintegration.itemdetail.dto.OverviewSection;
 import com.demo.itemintegration.itemdetail.service.ItemDetailsService;
 import com.demo.itemintegration.part.dto.PartDto;
 import com.demo.itemintegration.part.model.LifecycleStatus;
@@ -38,8 +40,8 @@ class ItemDetailsControllerTest {
     @Test
     void overview() throws Exception {
         when(service.getOverview(4332025200L)).thenReturn(new ItemOverviewDto(4332025200L, "A93548-290", "RES D",
-                "01", "RESISTOR_DISCRETE", "Conditional", List.of(new ItemOverviewDto.Section("Risk",
-                        List.of(new ItemOverviewDto.Field("Cost Risk", "Not Assessed", "No active source"))))));
+                "01", "RESISTOR_DISCRETE", "Conditional", List.of(new OverviewSection("Risk",
+                        List.of(new OverviewField("Cost Risk", "Not Assessed", "No active source"))))));
 
         mvc.perform(get("/api/items/4332025200/overview"))
                 .andExpect(status().isOk())

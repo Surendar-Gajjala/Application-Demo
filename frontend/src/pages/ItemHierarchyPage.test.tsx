@@ -143,6 +143,17 @@ describe('ItemHierarchyPage', () => {
     expect(await screen.findByRole('link', { name: '903239' })).toHaveAttribute('href', '/items/1');
   });
 
+  it('links part numbers in the tree to their part details page', async () => {
+    serve([
+      itemNode('1', '903239', [
+        { key: '1/9', id: 9, kind: 'PART', part: { partNumber: 'FTLX8574D3BCV-IT', manufacturer: 'FINISAR CORPORATION' }, children: [] },
+      ]),
+    ]);
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: 'FTLX8574D3BCV-IT' })).toHaveAttribute('href', '/parts/9');
+  });
+
   it('shows a shared item under every product that uses it', async () => {
     serve(TREE);
     renderPage();

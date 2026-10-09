@@ -62,6 +62,7 @@ Central configuration is `config/ExternalApiProperties` (prefix `external.api`),
 | `GET /api/item-hierarchy/products?page&size` | 1 query-config | top-level product numbers only; used for the dashboard count |
 | `GET /api/items/{id}/overview` | 1 object fetch | about 60 properties grouped into sections; 404 `ITEM_NOT_FOUND` for unknown ids |
 | `GET /api/items/{id}/sources` | 1 graph traversal | the item's sourced parts, as `PartDto` |
+| `GET /api/parts/{id}/overview` | 1 object fetch | part properties grouped into sections; 404 `PART_NOT_FOUND` for unknown ids or non-part objects |
 
 Paged responses use `common.dto.PageResponse`: `count, objects, page (0-based), size (1–100), totalObjects, totalPages, hasMore` (`objects` holds the rows for any entity). All errors go through `common.error.GlobalExceptionHandler` as RFC 7807 problems with a stable `code` and no upstream details.
 
@@ -73,7 +74,8 @@ Paged responses use `common.dto.PageResponse`: `count, objects, page (0-based), 
 - **Graph traversals for one item anchor on its id** (`anchorProperty: "id"`), so a tab needs no extra call to look up the item number.
 - **IDs are `Long`** even where the spec says Int: hosted ids exceed the int range.
 - **Display labels:** status-like codes become readable labels in the backend via `common.mapping.CodeLabels` (for example `PRODN_APPROVED` → Production Approved, `N_A` → N/A). Unknown codes pass through unchanged. Entity enums (`SourcingType`, `SupplyChainRisk`, `LifecycleStatus`, `SiteType`, `AvailabilityRisk`) serialise as their spec labels.
-- **The hosted object endpoint returns an empty 200 for an unknown id.** `fetchObject` returns `Optional.empty()`, and the service turns that (or a non-item object) into 404.
+- **The hosted object endpoint returns an empty 200 for an unknown id.** `fetchObject` returns `Optional.empty()`, and the service turns that (or a wrong-type object) into 404.
+- **Item and part Overview tabs share one builder.** `itemdetail.mapper.ObjectOverviewMapper` holds the `Kind`/`Spec`/`SectionSpec` machinery and `build(...)`; `ItemOverviewMapper` and `partdetail.mapper.PartOverviewMapper` each supply only their section/field table. Sections/fields use the shared `OverviewSection`/`OverviewField` records. The part Overview is reached by clicking a **Part Number** anywhere (Parts table, item Sources tab, Item Hierarchy part rows) via `partLink` in `components/table/cells.tsx`, which routes to `/parts/:id` (`PartDetailsPage`, Overview only).
 - **Removed on request:** the item details "Where Used" tab (item_bom ancestors), the Add Item button, the Actions and ID columns, and the "Go to page" box (from every table footer; Previous/Next and page numbers remain).
 
 ## How to add an entity or tab

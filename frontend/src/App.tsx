@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ItemHierarchyPage } from './pages/ItemHierarchyPage';
 import { ItemDetailsPage } from './pages/ItemDetailsPage';
 import { ItemsPage } from './pages/ItemsPage';
+import { PartDetailsPage } from './pages/PartDetailsPage';
 import { PartsPage } from './pages/PartsPage';
 import { SitesPage } from './pages/SitesPage';
 
@@ -20,6 +21,7 @@ export function App() {
           <Route path="/dashboards" element={<DashboardPage />} />
           <Route path="/item-hierarchy" element={<ItemHierarchyPage />} />
           <Route path="/parts" element={<PartsPage />} />
+          <Route path="/parts/:id" element={<PartDetailsPage />} />
           <Route path="/sites" element={<SitesPage />} />
           <Route path="*" element={<Navigate to="/items" replace />} />
         </Routes>

@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import type { HierarchyItemNode, HierarchyNode, HierarchyPartNode } from '../../types/hierarchy';
-import { itemLink } from '../table/cells';
+import { itemLink, partLink } from '../table/cells';
 import { HIERARCHY_COLUMNS } from './hierarchyColumns';
 import { itemChildren, partChildren, visibleRows } from './treeRows';
 
@@ -105,7 +105,7 @@ function ItemRows({ node, depth, isOpen, onToggle }: ItemRowsProps) {
 
   const partCells = (part: HierarchyPartNode | undefined) => (
     <>
-      <td className={partCell}>{part?.part.partNumber ?? ''}</td>
+      <td className={partCell}>{part ? partLink(part.id, part.part.partNumber) : ''}</td>
       <td className={partCell}>{part?.part.manufacturer ?? ''}</td>
     </>
   );

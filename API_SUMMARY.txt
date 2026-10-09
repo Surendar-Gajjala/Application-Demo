@@ -1,0 +1,292 @@
+================================================================================
+ EXTERNAL ITEM DATA INTEGRATION — API SUMMARY
+ Frontend -> Local Backend API -> Hosted (external) server
+ Generated: 2026-10-09
+================================================================================
+
+HOW TO READ THIS FILE
+---------------------
+The app is a read-only integration layer. It owns NO data and uses NO database.
+For every request the flow is always:
+
+    Frontend (React)
+        -> GET /api/...            (local Spring Boot API, the ONLY thing the UI calls)
+            -> ExternalApiClient   (adds Bearer token, sends ONE payload)
+                -> Hosted server   (source of truth)
+            <- external response
+        <- mapped internal DTO     (clean internal field names, no external names, no token)
+
+Key rules enforced everywhere:
+  * The frontend NEVER calls the hosted server directly; it only calls /api/*.
+  * Each local request makes a fixed, small number of hosted calls (never one per row).
+  * The Bearer token lives only in backend/.env, never in logs, responses, or the UI.
+  * External field names (item__business_unit, ...) exist only in the external DTOs;
+    the local API exposes internal names (businessUnit, ...).
+
+Common paging envelope (PageResponse<T>) returned by all list endpoints:
+  {
+    "count":        <rows on this page>,
+    "objects":      [ ...rows of type T... ],
+    "page":         <zero-based page index>,
+    "size":         <page size, 1..100>,
+    "totalObjects": <total across all pages, or null if hosted gives no total>,
+    "totalPages":   <or null>,
+    "hasMore":      <boolean>
+  }
+Shared list query params: ?page (>=0, default 0)  &  ?size (1..100, default 25).
+
+
+================================================================================
+ 1. ITEMS      GET /api/items?page&size
+================================================================================
+PURPOSE
+  Main Items table. One page of items for the Items tab and the dashboard count.
+
+FRONTEND
+  Page:    src/pages/ItemsPage.tsx          (also DashboardPage.tsx for the count)
+  Hook:    src/hooks/useItems.ts            -> queryKey ['items','list',page,size]
+  Service: src/services/items.ts            fetchItems(page,size)
+  Type:    src/types/item.ts (ItemListResponse)
+
+BACKEND
+  Controller: item/controller/ItemController.java
+  Service:    item/service/ItemService.java
+  Mapper:     item/mapper/ItemMapper.java
+  Hosted calls: 1 query-config POST.
+  Payload file: resources/external-queries/item-query.json
+    - from.entity = "item"; selects item_number, description, revision,
+      business_unit, is_product, structure_role, odm.name, odm.active,
+      availability_risk, used_in_products, product_families_impacted,
+      item_status.name, id (each aliased to an external alias like item__business_unit).
+    - Paging (page,size) is added to the URL by the client, not the payload.
+
+RESPONSE — PageResponse<ItemDto>; ItemDto fields:
+  id (Long), itemNumber, description, revision, businessUnit,
+  isProduct (Boolean), structureRole (ITEM|BOM),
+  odmName (List<String>), odmActive (List<Boolean>),
+  availabilityRisk (LOW|MEDIUM|HIGH|NOT ASSESSED),
+  usedInProducts, productFamiliesImpacted (Integer), itemStatusName
+
+
+================================================================================
+ 2. PARTS      GET /api/parts?page&size
+================================================================================
+PURPOSE
+  Parts table. One page of parts for the Parts tab and the dashboard count.
+
+FRONTEND
+  Page:    src/pages/PartsPage.tsx
+  Hook:    src/hooks/useParts.ts
+  Service: src/services/parts.ts            fetchParts(page,size)
+  Type:    src/types/part.ts
+
+BACKEND
+  Controller: part/controller/PartController.java
+  Service:    part/service/PartService.java   (1 query-config POST)
+  Payload file: resources/external-queries/part-query.json
+    - from.entity = "part"; selects part_number, manufacturer, description,
+      z2_properties_comparison, country_of_origin, sourcing_type,
+      supply_chain_risk, lifecycle.status, id.
+
+RESPONSE — PageResponse<PartDto>; PartDto fields:
+  id, partNumber, manufacturer, description, z2PropertiesComparison,
+  countryOfOrigin, sourcingType, supplyChainRisk, lifecycleStatus
+  (enum values serialise as their spec labels).
+
+
+================================================================================
+ 3. SITES      GET /api/sites?page&size
+================================================================================
+PURPOSE
+  Sites table. (Note: the hosted environment currently has 0 sites, so this
+  normally returns an empty page.)
+
+FRONTEND
+  Page:    src/pages/SitesPage.tsx
+  Hook:    src/hooks/useSites.ts
+  Service: src/services/sites.ts             fetchSites(page,size)
+  Type:    src/types/site.ts
+
+BACKEND
+  Controller: site/controller/SiteController.java
+  Service:    site/service/SiteService.java   (1 query-config POST)
+  Payload file: resources/external-queries/site-query.json
+    - from.entity = "site"; selects site_id, internal_site_id, site_name,
+      site_type, and the address.* block (full_address, address_line_1..3,
+      city_locality, district_county, state_province, postal_code, country,
+      latitude, longitude), plus id.
+
+RESPONSE — PageResponse<SiteDto>; SiteDto fields:
+  id, siteId, internalSiteId, siteName, siteType,
+  fullAddress, addressLine1, addressLine2, addressLine3,
+  cityLocality, districtCounty, stateProvince, postalCode, country,
+  latitude (Double), longitude (Double)
+
+
+================================================================================
+ 4. ITEM HIERARCHY   GET /api/item-hierarchy?page&size
+================================================================================
+PURPOSE
+  Tree for the Item Hierarchy tab: top-level products -> their BOM items (with
+  qty) -> the parts sourced for those items.
+
+FRONTEND
+  Page:    src/pages/ItemHierarchyPage.tsx
+  Hook:    src/hooks/useItemHierarchy.ts (useItemHierarchy)
+  Service: src/services/hierarchy.ts          fetchItemHierarchy(page,size)
+  Type:    src/types/hierarchy.ts
+
+BACKEND
+  Controller: hierarchy/controller/HierarchyController.java
+  Service:    hierarchy/service/HierarchyService.java
+  Builder:    hierarchy/mapper/HierarchyTreeBuilder.java
+  Hosted calls: 2 — (a) anchors query-config to learn which products are on this
+                page, then (b) ONE graph traversal for all of those anchors.
+  Payload files:
+    - item-hierarchy-anchors.json : distinct top-of-item_bom item_number values
+      (the page of product "anchors"), filtered by scope.id, ordered asc.
+    - item-hierarchy-graph.json   : graph match, relationshipTypes
+      [item_bom, item_sources], DESCENDANTS, anchorProperty "item_number",
+      maxDepth 6, edgeProperty qty_per_bom.qty; selects a wide set of item
+      columns (type, status, make_buy, design_group, environmental_compliance.*,
+      business_unit, is_product, structure_role) and part columns
+      (part_number, manufacturer). Client fills in traversal.anchorValues.
+
+RESPONSE — PageResponse<HierarchyNodeDto>; each node:
+  key      : unique per occurrence = path of node ids (a shared item/part
+             appears once under every parent that uses it)
+  kind     : node kind (item / part)
+  id       : node id
+  qty      : BigDecimal qty on the item_bom edge; null for products & sourced parts
+  item     : HierarchyItemDto (itemNumber, description, revision, itemType,
+             itemStatus, makeBuy, designGroup, restricted, exemptionStatus,
+             project, sourceNotes, collection(+lock), euRohs(+lock), ecExemptions,
+             pwbLeadHalogen(+lock), plasticLeadHalogen(+lock), pnr(+lock),
+             businessUnit, isProduct, structureRole)   -- set when kind=item
+  part     : HierarchyPartDto (partNumber, manufacturer)  -- set when kind=part
+  children : nested HierarchyNodeDto[]
+  (null fields are omitted from the JSON.)
+
+
+================================================================================
+ 5. HIERARCHY PRODUCTS   GET /api/item-hierarchy/products?page&size
+================================================================================
+PURPOSE
+  Just the top-level product item numbers, no tree. Cheap enough for the
+  dashboard "products / BOMs" count.
+
+FRONTEND
+  Page:    src/pages/DashboardPage.tsx
+  Hook:    src/hooks/useItemHierarchy.ts (useHierarchyProducts)
+  Service: src/services/hierarchy.ts          fetchHierarchyProducts(page,size)
+
+BACKEND
+  Controller: HierarchyController.getProducts
+  Service:    HierarchyService.getProducts  (1 query-config POST, anchors only)
+  Payload file: item-hierarchy-anchors.json (same as above, no graph traversal)
+
+RESPONSE — PageResponse<String> (objects is a list of product item numbers).
+
+
+================================================================================
+ 6. ITEM OVERVIEW   GET /api/items/{id}/overview
+================================================================================
+PURPOSE
+  Overview tab of the item details view: ~60 item properties grouped into
+  labelled sections, display-ready (codes -> readable labels, booleans -> Yes/No).
+
+FRONTEND
+  Page:    src/pages/ItemDetailsPage.tsx  (route /items/:id)
+  Hook:    src/hooks/useItemDetails.ts (useItemOverview)
+  Service: src/services/itemDetails.ts        fetchItemOverview(id)
+  Type:    src/types/itemDetails.ts
+
+BACKEND
+  Controller: itemdetail/controller/ItemDetailsController.java
+  Service:    itemdetail/service/ItemDetailsService.java (getOverview)
+  Mapper:     itemdetail/mapper/ItemOverviewMapper.java
+  Hosted calls: 1 — single-object fetch GET {EXTERNAL_API_OBJECT_URL}/{id}.
+    (No payload file; the id is appended to the object URL.)
+  Path param: id (positive long).
+
+RESPONSE — ItemOverviewDto:
+  id, itemNumber, description, revision, itemType, itemStatus,
+  sections: [ { title, fields: [ { label, value, reason } ] } ]
+    - value is display-ready; null means no value.
+    - reason explains a calculated value (e.g. why a risk is "Not Assessed").
+
+ERRORS
+  Unknown id OR a non-item object -> 404 with code ITEM_NOT_FOUND
+  ("No item exists with this id."). The hosted empty-200 is treated as not-found.
+
+
+================================================================================
+ 7. ITEM SOURCES   GET /api/items/{id}/sources
+================================================================================
+PURPOSE
+  Sources tab of the item details view: the parts sourced for one item.
+
+FRONTEND
+  Page:    src/pages/ItemDetailsPage.tsx  (loaded only when the Sources tab is active)
+  Hook:    src/hooks/useItemDetails.ts (useItemSources, enabled on tab)
+  Service: src/services/itemDetails.ts        fetchItemSources(id)
+
+BACKEND
+  Controller: ItemDetailsController.getSources
+  Service:    ItemDetailsService.getSources
+  Mapper:     itemdetail/mapper/ItemSourcesMapper.java
+  Hosted calls: 1 — graph traversal anchored on the item id.
+  Payload file: item-sources-graph.json
+    - relationshipTypes [item_sources], DESCENDANTS, anchorProperty "id",
+      maxDepth 1; selects part columns (part_number, manufacturer, description,
+      z2_properties_comparison, country_of_origin, sourcing_type,
+      supply_chain_risk, lifecycle.status).
+  Path param: id (positive long).
+
+RESPONSE — List<PartDto> (same PartDto shape as /api/parts, but a bare array,
+  not a PageResponse).
+
+
+================================================================================
+ CONFIGURATION (backend/.env, prefix external.api — ExternalApiProperties.java)
+================================================================================
+  EXTERNAL_API_URL         query-config endpoint: Items, Parts, Sites, hierarchy anchors
+  EXTERNAL_API_GRAPH_URL   graph-match endpoint: Item Hierarchy, Item Sources
+  EXTERNAL_API_OBJECT_URL  single-object endpoint: Item Overview ("/{id}" appended)
+  EXTERNAL_API_TOKEN       Bearer token for all three (secret; .env only)
+  The token is masked in toString(); HTTP wire logging is kept off.
+
+
+================================================================================
+ ERROR CONTRACT (all endpoints) — common/error/GlobalExceptionHandler.java
+================================================================================
+  RFC 7807 problem JSON: { title, status, detail, code }. A stable "code" is set;
+  no upstream URL, body, or token is ever included. The frontend shows "detail"
+  (src/services/apiClient.ts -> getErrorMessage).
+
+  Hosted failure        -> local status  code
+  --------------------------------------------------------------------------
+  401 / 403 Unauthorized/Forbidden  502  ITEM_SOURCE_ACCESS_DENIED
+                                         (common symptom of an expired ~24h token)
+  404 endpoint not found            502  ITEM_SOURCE_NOT_FOUND
+  429 rate limited                  429  ITEM_SOURCE_RATE_LIMITED (+ Retry-After)
+  timeout                           504  ITEM_SOURCE_TIMEOUT
+  connection failure / unreachable  503  ITEM_SOURCE_UNAVAILABLE
+  unreadable / empty body           502  ITEM_SOURCE_INVALID_RESPONSE
+  5xx or other 4xx                  502  ITEM_SOURCE_ERROR
+  unknown item id (overview)        404  ITEM_NOT_FOUND
+
+
+================================================================================
+ QUICK REFERENCE
+================================================================================
+  Endpoint                          Hosted calls  Returns          Frontend page
+  ------------------------------------------------------------------------------
+  GET /api/items                    1 query       Page<ItemDto>    Items
+  GET /api/parts                    1 query       Page<PartDto>    Parts
+  GET /api/sites                    1 query       Page<SiteDto>    Sites
+  GET /api/item-hierarchy           2 (anchors+1) Page<NodeDto>    Item Hierarchy
+  GET /api/item-hierarchy/products  1 query       Page<String>     Dashboard
+  GET /api/items/{id}/overview      1 object      ItemOverviewDto  Item Details (Overview)
+  GET /api/items/{id}/sources       1 graph       List<PartDto>    Item Details (Sources)
+================================================================================

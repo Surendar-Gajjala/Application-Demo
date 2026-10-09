@@ -8,7 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import com.demo.itemintegration.external.dto.ExternalObjectResponse;
 import com.demo.itemintegration.itemdetail.dto.ItemOverviewDto;
-import com.demo.itemintegration.itemdetail.dto.ItemOverviewDto.Field;
+import com.demo.itemintegration.itemdetail.dto.OverviewField;
+import com.demo.itemintegration.itemdetail.dto.OverviewSection;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 class ItemOverviewMapperTest {
@@ -50,10 +51,10 @@ class ItemOverviewMapperTest {
     }
 
     /** Fields keyed "label@section"; labels are unique within the whole overview. */
-    private Map<String, Field> fields(ItemOverviewDto dto) {
-        Map<String, Field> byKey = new java.util.LinkedHashMap<>();
-        for (ItemOverviewDto.Section section : dto.sections()) {
-            for (Field field : section.fields()) {
+    private Map<String, OverviewField> fields(ItemOverviewDto dto) {
+        Map<String, OverviewField> byKey = new java.util.LinkedHashMap<>();
+        for (OverviewSection section : dto.sections()) {
+            for (OverviewField field : section.fields()) {
                 assertThat(byKey.put(field.label() + "@" + section.title(), field)).as("duplicate " + field.label()).isNull();
             }
         }
@@ -75,9 +76,9 @@ class ItemOverviewMapperTest {
     @Test
     void groupsPropertiesIntoSectionsWithDisplayValues() throws Exception {
         ItemOverviewDto dto = overview();
-        Map<String, Field> f = fields(dto);
+        Map<String, OverviewField> f = fields(dto);
 
-        assertThat(dto.sections()).extracting(ItemOverviewDto.Section::title)
+        assertThat(dto.sections()).extracting(OverviewSection::title)
                 .containsExactly("General", "Risk", "Lifecycle", "Environmental Compliance", "Usage & Impact", "Notes");
         assertThat(f.get("Item Status@General").value()).isEqualTo("Conditional");
         assertThat(f.get("Product@General").value()).isEqualTo("No");
@@ -92,9 +93,9 @@ class ItemOverviewMapperTest {
 
     @Test
     void riskFieldsCarryTheirReason() throws Exception {
-        Map<String, Field> f = fields(overview());
+        Map<String, OverviewField> f = fields(overview());
 
-        Field cost = f.get("Cost Risk@Risk");
+        OverviewField cost = f.get("Cost Risk@Risk");
         assertThat(cost.value()).isEqualTo("Not Assessed");
         assertThat(cost.reason()).isEqualTo("No active source has both a customer cost and a Z2 market price.");
         assertThat(f.get("Environmental Compliance Risk@Risk").value()).isEqualTo("LOW");

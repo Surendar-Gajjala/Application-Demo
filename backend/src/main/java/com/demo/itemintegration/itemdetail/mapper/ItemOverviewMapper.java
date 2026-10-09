@@ -1,10 +1,6 @@
 package com.demo.itemintegration.itemdetail.mapper;
 
-import static com.demo.itemintegration.common.mapping.ExternalValues.list;
-
-import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 
 import org.springframework.stereotype.Component;
 
@@ -12,46 +8,18 @@ import com.demo.itemintegration.common.mapping.CodeLabels;
 import com.demo.itemintegration.common.mapping.ExternalValues;
 import com.demo.itemintegration.external.dto.ExternalObjectResponse;
 import com.demo.itemintegration.itemdetail.dto.ItemOverviewDto;
-import com.demo.itemintegration.itemdetail.dto.ItemOverviewDto.Field;
-import com.demo.itemintegration.itemdetail.dto.ItemOverviewDto.Section;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.demo.itemintegration.itemdetail.mapper.ObjectOverviewMapper.Kind;
+import com.demo.itemintegration.itemdetail.mapper.ObjectOverviewMapper.SectionSpec;
+import com.demo.itemintegration.itemdetail.mapper.ObjectOverviewMapper.Spec;
 
 /**
  * Maps the hosted partial-object response of an item to the Overview tab. The field
  * table below is the only place that knows the external property names; properties
- * not listed are not exposed.
+ * not listed are not exposed. The section-building machinery is shared with parts via
+ * {@link ObjectOverviewMapper}.
  */
 @Component
 public class ItemOverviewMapper {
-
-    /** How a raw value becomes display text. */
-    private enum Kind {
-        TEXT(ExternalValues::text),
-        CODE(CodeLabels::label),
-        BOOL(node -> {
-            Boolean value = ExternalValues.toBoolean(node);
-            return value == null ? null : value ? "Yes" : "No";
-        }),
-        CODES(node -> {
-            List<String> labels = list(node, element -> CodeLabels.label(element));
-            return labels.isEmpty() ? null : String.join(", ", labels);
-        });
-
-        private final Function<JsonNode, String> format;
-
-        Kind(Function<JsonNode, String> format) {
-            this.format = format;
-        }
-    }
-
-    private record Spec(String external, String label, Kind kind, String reasonExternal) {
-        static Spec of(String external, String label, Kind kind) {
-            return new Spec(external, label, kind, null);
-        }
-    }
-
-    private record SectionSpec(String title, List<Spec> fields) {
-    }
 
     private static final List<SectionSpec> SECTIONS = List.of(
             new SectionSpec("General", List.of(
@@ -123,15 +91,6 @@ public class ItemOverviewMapper {
                     Spec.of("material_comments", "Material Comments", Kind.TEXT))));
 
     public ItemOverviewDto toOverview(ExternalObjectResponse object) {
-        List<Section> sections = new ArrayList<>(SECTIONS.size());
-        for (SectionSpec section : SECTIONS) {
-            List<Field> fields = new ArrayList<>(section.fields().size());
-            for (Spec spec : section.fields()) {
-                String reason = spec.reasonExternal() == null ? null : ExternalValues.text(object.value(spec.reasonExternal()));
-                fields.add(new Field(spec.label(), spec.kind().format.apply(object.value(spec.external())), reason));
-            }
-            sections.add(new Section(section.title(), fields));
-        }
         return new ItemOverviewDto(
                 object.objectId(),
                 ExternalValues.text(object.value("item_number")),
@@ -139,6 +98,6 @@ public class ItemOverviewMapper {
                 ExternalValues.text(object.value("revision")),
                 ExternalValues.text(object.value("item_type")),
                 CodeLabels.label(object.value("item_status")),
-                sections);
+                ObjectOverviewMapper.build(SECTIONS, object));
     }
 }

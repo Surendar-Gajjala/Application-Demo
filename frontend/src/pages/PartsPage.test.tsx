@@ -83,6 +83,15 @@ describe('PartsPage', () => {
     expect(screen.getByRole('contentinfo')).toHaveTextContent('1–2 of 2');
   });
 
+  it('links each part number to its part details page', async () => {
+    servePaged([part({ id: 42 })]);
+
+    renderPage();
+
+    const link = await screen.findByRole('link', { name: 'FC FBMJ3216HS480NT' });
+    expect(link).toHaveAttribute('href', '/parts/42');
+  });
+
   it('filters the current page by manufacturer', async () => {
     servePaged([part({ id: 1 }), part({ id: 2, partNumber: 'P-2', manufacturer: 'Murata' })]);
     renderPage();

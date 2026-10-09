@@ -1,5 +1,5 @@
 import type { LifecycleStatus, Part, SourcingType, SupplyChainRisk } from '../../types/part';
-import { dash, keyCell, textCell } from '../table/cells';
+import { dash, partLink, textCell } from '../table/cells';
 import type { Column } from '../table/types';
 import { Badge, type BadgeTone } from '../ui/Badge';
 
@@ -30,7 +30,7 @@ const LIFECYCLE_TONE: Record<LifecycleStatus, BadgeTone> = {
  * names (the ID is used as the row key but not shown, as on the Items tab).
  */
 export const PART_COLUMNS: Column<Part>[] = [
-  { key: 'partNumber', header: 'Part Number', render: (p) => keyCell(p.partNumber) },
+  { key: 'partNumber', header: 'Part Number', render: (p) => partLink(p.id, p.partNumber) },
   { key: 'manufacturer', header: 'Manufacturer', render: (p) => textCell(p.manufacturer) },
   { key: 'description', header: 'Description', wide: true, render: (p) => textCell(p.description) },
   {
