@@ -63,7 +63,7 @@ Central configuration is `config/ExternalApiProperties` (prefix `external.api`),
 | `GET /api/items/{id}/overview` | 1 object fetch | about 60 properties grouped into sections; 404 `ITEM_NOT_FOUND` for unknown ids |
 | `GET /api/items/{id}/sources` | 1 graph traversal | the item's sourced parts, as `PartDto` |
 
-Paged responses use `common.dto.PageResponse`: `count, items, page (0-based), size (1–100), totalItems, totalPages, hasMore`. All errors go through `common.error.GlobalExceptionHandler` as RFC 7807 problems with a stable `code` and no upstream details.
+Paged responses use `common.dto.PageResponse`: `count, objects, page (0-based), size (1–100), totalObjects, totalPages, hasMore` (`objects` holds the rows for any entity). All errors go through `common.error.GlobalExceptionHandler` as RFC 7807 problems with a stable `code` and no upstream details.
 
 ## Decisions that extend or differ from the requirements
 
@@ -74,7 +74,7 @@ Paged responses use `common.dto.PageResponse`: `count, items, page (0-based), si
 - **IDs are `Long`** even where the spec says Int: hosted ids exceed the int range.
 - **Display labels:** status-like codes become readable labels in the backend via `common.mapping.CodeLabels` (for example `PRODN_APPROVED` → Production Approved, `N_A` → N/A). Unknown codes pass through unchanged. Entity enums (`SourcingType`, `SupplyChainRisk`, `LifecycleStatus`, `SiteType`, `AvailabilityRisk`) serialise as their spec labels.
 - **The hosted object endpoint returns an empty 200 for an unknown id.** `fetchObject` returns `Optional.empty()`, and the service turns that (or a non-item object) into 404.
-- **Removed on request:** the item details "Where Used" tab (item_bom ancestors), the Add Item button, the Actions and ID columns, and "Go to page" on the Item Hierarchy.
+- **Removed on request:** the item details "Where Used" tab (item_bom ancestors), the Add Item button, the Actions and ID columns, and the "Go to page" box (from every table footer; Previous/Next and page numbers remain).
 
 ## How to add an entity or tab
 

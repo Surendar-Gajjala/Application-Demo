@@ -33,9 +33,9 @@ class PartServiceTest {
 
         verify(client, times(1)).execute(ExternalQuery.PARTS, 0, 25);
         assertThat(parts.count()).isEqualTo(2);
-        assertThat(parts.items().get(0).partNumber()).isEqualTo("P-1");
-        assertThat(parts.items().get(0).sourcingType()).isEqualTo(SourcingType.OFF_THE_SHELF);
-        assertThat(parts.totalItems()).isEqualTo(10_994L);
+        assertThat(parts.objects().get(0).partNumber()).isEqualTo("P-1");
+        assertThat(parts.objects().get(0).sourcingType()).isEqualTo(SourcingType.OFF_THE_SHELF);
+        assertThat(parts.totalObjects()).isEqualTo(10_994L);
         assertThat(parts.totalPages()).isEqualTo(440);
         assertThat(parts.hasMore()).isTrue();
     }

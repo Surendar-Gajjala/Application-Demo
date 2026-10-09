@@ -17,8 +17,6 @@ interface Props {
   onPageSizeChange: (size: number) => void;
   /** Plural noun for the loading message, e.g. "items" or "parts". */
   noun: string;
-  /** Show the "Go to page" box (default true). */
-  showGoToPage?: boolean;
 }
 
 type PageToken = number | 'gap-start' | 'gap-end';
@@ -52,7 +50,6 @@ export function PaginationFooter({
   onPageChange,
   onPageSizeChange,
   noun,
-  showGoToPage = true,
 }: Props) {
   return (
     <footer className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t border-gray-200 bg-white px-10 py-3 text-[15px] text-gray-600">
@@ -91,29 +88,6 @@ export function PaginationFooter({
           </span>
         </label>
       </div>
-
-      <div className="flex items-center gap-5">
-      {showGoToPage && (
-        <label className="flex items-center gap-2.5">
-          Go to page
-          <input
-            type="number"
-            min={1}
-            max={pageCount}
-            placeholder="#"
-            disabled={isFetching}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return;
-              const target = Number(event.currentTarget.value);
-              if (Number.isFinite(target) && event.currentTarget.value !== '') {
-                onPageChange(Math.min(pageCount, Math.max(1, Math.trunc(target))));
-                event.currentTarget.value = '';
-              }
-            }}
-            className="w-16 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-          />
-        </label>
-      )}
 
       <nav aria-label="Pagination" className="flex items-center gap-1">
         <button
@@ -158,7 +132,6 @@ export function PaginationFooter({
           <ChevronRight className="size-4" aria-hidden />
         </button>
       </nav>
-      </div>
     </footer>
   );
 }

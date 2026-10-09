@@ -60,9 +60,9 @@ To add another entity: add `<entity>-query.json` and an `ExternalQuery` constant
 
 ```json
 {
-  "page": 0, "size": 25, "totalItems": 5631, "totalPages": 226, "hasMore": true,
+  "page": 0, "size": 25, "totalObjects": 5631, "totalPages": 226, "hasMore": true,
   "count": 1,
-  "items": [{
+  "objects": [{
     "id": 42, "itemNumber": "ITM-001", "description": "Widget", "revision": "B",
     "businessUnit": "Hardware", "isProduct": true, "structureRole": "BOM",
     "odmName": ["Acme"], "odmActive": [true], "availabilityRisk": "NOT ASSESSED",

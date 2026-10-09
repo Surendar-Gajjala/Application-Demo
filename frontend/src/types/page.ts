@@ -4,10 +4,10 @@
  */
 export interface PageResponse<T> {
   count: number;
-  items: T[];
+  objects: T[];
   page: number;
   size: number;
-  totalItems: number | null;
+  totalObjects: number | null;
   totalPages: number | null;
   hasMore: boolean;
 }

@@ -41,11 +41,11 @@ class SiteControllerTest {
 
         mvc.perform(get("/api/sites"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0].siteName").value("Penang Assembly"))
-                .andExpect(jsonPath("$.items[0].siteType").value("IC Assembly"))
-                .andExpect(jsonPath("$.items[0].cityLocality").value("Bayan Lepas"))
-                .andExpect(jsonPath("$.items[0].latitude").value(5.2945))
-                .andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.objects[0].siteName").value("Penang Assembly"))
+                .andExpect(jsonPath("$.objects[0].siteType").value("IC Assembly"))
+                .andExpect(jsonPath("$.objects[0].cityLocality").value("Bayan Lepas"))
+                .andExpect(jsonPath("$.objects[0].latitude").value(5.2945))
+                .andExpect(jsonPath("$.totalObjects").value(1))
                 .andExpect(content().string(Matchers.not(Matchers.containsString("address_"))))
                 .andExpect(content().string(Matchers.not(Matchers.containsString("site__id"))));
     }
@@ -57,7 +57,7 @@ class SiteControllerTest {
         mvc.perform(get("/api/sites"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(0))
-                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.objects").isEmpty())
                 .andExpect(jsonPath("$.hasMore").value(false));
     }
 

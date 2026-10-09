@@ -8,14 +8,14 @@ import { server } from '../test/server';
 import { DashboardPage } from './DashboardPage';
 
 /** A one-row page carrying only the total, as the list endpoints return for size=1. */
-const total = (totalItems: number) => ({
-  count: Math.min(1, totalItems),
-  items: [],
+const total = (totalObjects: number) => ({
+  count: Math.min(1, totalObjects),
+  objects: [],
   page: 0,
   size: 1,
-  totalItems,
-  totalPages: Math.max(1, totalItems),
-  hasMore: totalItems > 1,
+  totalObjects,
+  totalPages: Math.max(1, totalObjects),
+  hasMore: totalObjects > 1,
 });
 
 function serveTotals(items: number, parts: number, sites: number, boms = 292) {

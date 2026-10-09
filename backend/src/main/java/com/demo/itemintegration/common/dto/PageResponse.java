@@ -4,27 +4,28 @@ import java.util.List;
 
 /**
  * One page of any entity as returned by the local API ({@code /api/items},
- * {@code /api/parts}, ...). {@code page} is zero-based; {@code count} is the number of
- * rows on this page. {@code totalItems} and {@code totalPages} are null when the hosted
- * server does not report a total.
+ * {@code /api/parts}, ...). {@code objects} holds the page's rows, whatever the entity;
+ * {@code page} is zero-based; {@code count} is the number of rows on this page.
+ * {@code totalObjects} and {@code totalPages} are null when the hosted server does not
+ * report a total.
  */
 public record PageResponse<T>(
         int count,
-        List<T> items,
+        List<T> objects,
         int page,
         int size,
-        Long totalItems,
+        Long totalObjects,
         Integer totalPages,
         boolean hasMore) {
 
     /** Largest page size the local API accepts. */
     public static final int MAX_SIZE = 100;
 
-    public static <T> PageResponse<T> of(List<T> items, int page, int size, Long totalItems, Boolean hasMore) {
-        Integer totalPages = totalItems == null ? null : (int) Math.max(1, (totalItems + size - 1) / size);
+    public static <T> PageResponse<T> of(List<T> objects, int page, int size, Long totalObjects, Boolean hasMore) {
+        Integer totalPages = totalObjects == null ? null : (int) Math.max(1, (totalObjects + size - 1) / size);
         boolean more = hasMore != null
                 ? hasMore
-                : totalItems != null ? (long) (page + 1) * size < totalItems : items.size() == size;
-        return new PageResponse<>(items.size(), items, page, size, totalItems, totalPages, more);
+                : totalObjects != null ? (long) (page + 1) * size < totalObjects : objects.size() == size;
+        return new PageResponse<>(objects.size(), objects, page, size, totalObjects, totalPages, more);
     }
 }

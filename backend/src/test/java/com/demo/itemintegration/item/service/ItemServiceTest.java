@@ -39,8 +39,8 @@ class ItemServiceTest {
 
         verify(client, times(1)).execute(ExternalQuery.ITEMS, 0, 10_000);
         assertThat(items.count()).isEqualTo(10_000);
-        assertThat(items.items().get(9_999).itemNumber()).isEqualTo("ITM-10000");
-        assertThat(items.totalItems()).isEqualTo(25_000L);
+        assertThat(items.objects().get(9_999).itemNumber()).isEqualTo("ITM-10000");
+        assertThat(items.totalObjects()).isEqualTo(25_000L);
         assertThat(items.totalPages()).isEqualTo(3);
         assertThat(items.hasMore()).isTrue();
     }

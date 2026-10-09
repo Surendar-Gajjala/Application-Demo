@@ -35,8 +35,8 @@ class SiteServiceTest {
 
         verify(client, times(1)).execute(ExternalQuery.SITES, 0, 25);
         assertThat(sites.count()).isEqualTo(2);
-        assertThat(sites.items().get(1).siteType()).isEqualTo(SiteType.HQ);
-        assertThat(sites.totalItems()).isEqualTo(2L);
+        assertThat(sites.objects().get(1).siteType()).isEqualTo(SiteType.HQ);
+        assertThat(sites.totalObjects()).isEqualTo(2L);
         assertThat(sites.hasMore()).isFalse();
     }
 
@@ -53,8 +53,8 @@ class SiteServiceTest {
         PageResponse<SiteDto> sites = new SiteService(client, new SiteMapper()).getSites(0, 25);
 
         assertThat(sites.count()).isZero();
-        assertThat(sites.items()).isEmpty();
-        assertThat(sites.totalItems()).isZero();
+        assertThat(sites.objects()).isEmpty();
+        assertThat(sites.totalObjects()).isZero();
         assertThat(sites.totalPages()).isEqualTo(1);
         assertThat(sites.hasMore()).isFalse();
     }

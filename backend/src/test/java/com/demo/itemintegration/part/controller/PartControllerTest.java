@@ -44,13 +44,13 @@ class PartControllerTest {
 
         mvc.perform(get("/api/parts").param("page", "1").param("size", "50"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0].id").value(4332025100L))
-                .andExpect(jsonPath("$.items[0].partNumber").value("FC FBMJ3216HS480NT"))
-                .andExpect(jsonPath("$.items[0].countryOfOrigin").value("China"))
-                .andExpect(jsonPath("$.items[0].sourcingType").value("Off-the-shelf"))
-                .andExpect(jsonPath("$.items[0].supplyChainRisk").value("Not Assessed"))
-                .andExpect(jsonPath("$.items[0].lifecycleStatus").value("LastTimeBuy"))
-                .andExpect(jsonPath("$.totalItems").value(10994))
+                .andExpect(jsonPath("$.objects[0].id").value(4332025100L))
+                .andExpect(jsonPath("$.objects[0].partNumber").value("FC FBMJ3216HS480NT"))
+                .andExpect(jsonPath("$.objects[0].countryOfOrigin").value("China"))
+                .andExpect(jsonPath("$.objects[0].sourcingType").value("Off-the-shelf"))
+                .andExpect(jsonPath("$.objects[0].supplyChainRisk").value("Not Assessed"))
+                .andExpect(jsonPath("$.objects[0].lifecycleStatus").value("LastTimeBuy"))
+                .andExpect(jsonPath("$.totalObjects").value(10994))
                 .andExpect(jsonPath("$.totalPages").value(220))
                 .andExpect(content().string(Matchers.not(Matchers.containsString("part__"))));
     }

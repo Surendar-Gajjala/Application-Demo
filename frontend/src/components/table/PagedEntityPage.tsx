@@ -39,7 +39,7 @@ export function PagedEntityPage<T>({
 }: Props<T>) {
   const { page, pageSize, setPage, setPageSize } = usePagination();
   const { data, isLoading, isError, error, isFetching, isPlaceholderData } = usePage(page - 1, pageSize);
-  const rows = data?.items ?? [];
+  const rows = data?.objects ?? [];
   const { query, setQuery, filtered } = useTableSearch(rows, searchFields);
 
   const offset = (page - 1) * pageSize;
@@ -75,7 +75,7 @@ export function PagedEntityPage<T>({
               pageSize={pageSize}
               rangeStart={data && data.count > 0 ? offset + 1 : 0}
               rangeEnd={offset + (data?.count ?? 0)}
-              total={data?.totalItems ?? null}
+              total={data?.totalObjects ?? null}
               isLoading={isLoading}
               isFetching={isFetching}
               onPageChange={setPage}

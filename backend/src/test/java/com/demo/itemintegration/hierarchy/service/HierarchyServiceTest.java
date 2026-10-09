@@ -47,9 +47,9 @@ class HierarchyServiceTest {
 
         verify(client, times(1)).execute(ExternalQuery.HIERARCHY_ANCHORS, 0, 2);
         verify(client, times(1)).matchGraph(GraphQuery.ITEM_HIERARCHY, List.of("903239", "903240"));
-        assertThat(page.items()).extracting(n -> n.item().itemNumber()).containsExactly("903239", "903240");
-        assertThat(page.items().get(0).children()).hasSize(1);
-        assertThat(page.totalItems()).isEqualTo(292L);
+        assertThat(page.objects()).extracting(n -> n.item().itemNumber()).containsExactly("903239", "903240");
+        assertThat(page.objects().get(0).children()).hasSize(1);
+        assertThat(page.totalObjects()).isEqualTo(292L);
         assertThat(page.totalPages()).isEqualTo(146);
         assertThat(page.hasMore()).isTrue();
     }
@@ -64,8 +64,8 @@ class HierarchyServiceTest {
 
         verify(client, times(1)).execute(ExternalQuery.HIERARCHY_ANCHORS, 0, 1);
         verify(client, never()).matchGraph(any(), any());
-        assertThat(products.items()).containsExactly("903239");
-        assertThat(products.totalItems()).isEqualTo(292L);
+        assertThat(products.objects()).containsExactly("903239");
+        assertThat(products.totalObjects()).isEqualTo(292L);
     }
 
     @Test
@@ -77,7 +77,7 @@ class HierarchyServiceTest {
         PageResponse<HierarchyNodeDto> page = service.getHierarchy(20, 25);
 
         verify(client, never()).matchGraph(any(), any());
-        assertThat(page.items()).isEmpty();
+        assertThat(page.objects()).isEmpty();
         assertThat(page.hasMore()).isFalse();
     }
 }

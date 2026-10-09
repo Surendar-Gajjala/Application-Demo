@@ -46,13 +46,13 @@ class ItemControllerTest {
         mvc.perform(get("/api/items"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(1))
-                .andExpect(jsonPath("$.items[0].id").value(42))
-                .andExpect(jsonPath("$.items[0].itemNumber").value("ITM-1"))
-                .andExpect(jsonPath("$.items[0].isProduct").value(true))
-                .andExpect(jsonPath("$.items[0].structureRole").value("ITEM"))
-                .andExpect(jsonPath("$.items[0].odmName[0]").value("Acme"))
-                .andExpect(jsonPath("$.items[0].availabilityRisk").value("NOT ASSESSED"))
-                .andExpect(jsonPath("$.items[0].productFamiliesImpacted").value(2))
+                .andExpect(jsonPath("$.objects[0].id").value(42))
+                .andExpect(jsonPath("$.objects[0].itemNumber").value("ITM-1"))
+                .andExpect(jsonPath("$.objects[0].isProduct").value(true))
+                .andExpect(jsonPath("$.objects[0].structureRole").value("ITEM"))
+                .andExpect(jsonPath("$.objects[0].odmName[0]").value("Acme"))
+                .andExpect(jsonPath("$.objects[0].availabilityRisk").value("NOT ASSESSED"))
+                .andExpect(jsonPath("$.objects[0].productFamiliesImpacted").value(2))
                 .andExpect(content().string(Matchers.not(Matchers.containsString("item__"))));
     }
 
@@ -64,7 +64,7 @@ class ItemControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.page").value(4))
                 .andExpect(jsonPath("$.size").value(50))
-                .andExpect(jsonPath("$.totalItems").value(5631))
+                .andExpect(jsonPath("$.totalObjects").value(5631))
                 .andExpect(jsonPath("$.totalPages").value(113))
                 .andExpect(jsonPath("$.hasMore").value(true));
     }

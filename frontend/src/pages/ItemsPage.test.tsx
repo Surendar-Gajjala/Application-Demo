@@ -52,10 +52,10 @@ function servePaged(all: Item[]) {
       const items = all.slice(page * size, page * size + size);
       const body: ItemListResponse = {
         count: items.length,
-        items,
+        objects: items,
         page,
         size,
-        totalItems: all.length,
+        totalObjects: all.length,
         totalPages: Math.max(1, Math.ceil(all.length / size)),
         hasMore: (page + 1) * size < all.length,
       };
@@ -161,21 +161,14 @@ describe('ItemsPage', () => {
     expect(screen.getByRole('link', { name: 'ASSEMBLY-002' })).toHaveAttribute('href', '/items/2');
   });
 
-  it('jumps to a page with Go to page', async () => {
-    const requested = servePaged(Array.from({ length: 200 }, (_, n) => item({ id: n + 1, itemNumber: `ITM-${n + 1}` })));
+  it('has page navigation but no Go to page box', async () => {
+    servePaged(Array.from({ length: 200 }, (_, n) => item({ id: n + 1, itemNumber: `ITM-${n + 1}` })));
     renderPage();
     await screen.findByText('ITM-1');
 
-    await userEvent.type(screen.getByRole('spinbutton', { name: 'Go to page' }), '5{Enter}');
-
-    expect(await screen.findByText('ITM-101')).toBeInTheDocument();
-    expect(requested.at(-1)).toBe('4/25');
-    expect(screen.getByRole('button', { name: 'Page 5' })).toHaveAttribute('aria-current', 'page');
-
-    await userEvent.type(screen.getByRole('spinbutton', { name: 'Go to page' }), '99{Enter}');
-
-    expect(await screen.findByText('ITM-176')).toBeInTheDocument();
-    expect(requested.at(-1)).toBe('7/25');
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.queryByText('Go to page')).not.toBeInTheDocument();
   });
 
   it('shows the backend problem detail when loading fails', async () => {

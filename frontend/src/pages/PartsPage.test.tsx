@@ -35,10 +35,10 @@ function servePaged(all: Part[]) {
       const items = all.slice(page * size, page * size + size);
       const body: PartListResponse = {
         count: items.length,
-        items,
+        objects: items,
         page,
         size,
-        totalItems: all.length,
+        totalObjects: all.length,
         totalPages: Math.max(1, Math.ceil(all.length / size)),
         hasMore: (page + 1) * size < all.length,
       };

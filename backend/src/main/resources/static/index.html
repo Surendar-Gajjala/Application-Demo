@@ -77,7 +77,7 @@
             if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
             return body;
         })
-        .then(body => { items = body.items || []; render(); })
+        .then(body => { items = body.objects || []; render(); })
         .catch(err => { statusEl.textContent = err.message; statusEl.className = 'error'; });
 
     filterEl.addEventListener('input', render);

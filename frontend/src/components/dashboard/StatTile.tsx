@@ -10,7 +10,7 @@ interface Props {
   label: string;
   to: string;
   icon: LucideIcon;
-  /** Count query: a one-row page whose `totalItems` is the count. */
+  /** Count query: a one-row page whose `totalObjects` is the count. */
   query: UseQueryResult<PageResponse<unknown>>;
   /** Link text; defaults to "View <label>". */
   linkText?: string;
@@ -24,7 +24,7 @@ const display = (count: number) => (count < 10_000 ? exact.format(count) : compa
 
 /** KPI tile: a total count from the hosted server, linking to the tab that lists it. */
 export function StatTile({ label, to, icon: Icon, query, linkText = `View ${label.toLowerCase()}` }: Props) {
-  const count = query.data?.totalItems ?? query.data?.count ?? null;
+  const count = query.data?.totalObjects ?? query.data?.count ?? null;
 
   return (
     <Link

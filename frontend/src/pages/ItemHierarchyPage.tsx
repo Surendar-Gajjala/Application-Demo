@@ -16,7 +16,7 @@ const toolbarButton =
 export function ItemHierarchyPage() {
   const { page, pageSize, setPage, setPageSize } = usePagination();
   const { data, isLoading, isError, error, isFetching, isPlaceholderData } = useItemHierarchy(page - 1, pageSize);
-  const roots = useMemo(() => data?.items ?? [], [data]);
+  const roots = useMemo(() => data?.objects ?? [], [data]);
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState('');
@@ -86,13 +86,12 @@ export function ItemHierarchyPage() {
             </div>
             <PaginationFooter
               noun="products"
-              showGoToPage={false}
               page={page}
               pageCount={pageCount}
               pageSize={pageSize}
               rangeStart={data && data.count > 0 ? offset + 1 : 0}
               rangeEnd={offset + (data?.count ?? 0)}
-              total={data?.totalItems ?? null}
+              total={data?.totalObjects ?? null}
               isLoading={isLoading}
               isFetching={isFetching}
               onPageChange={setPage}

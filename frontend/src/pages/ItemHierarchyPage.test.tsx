@@ -59,7 +59,7 @@ const TREE: HierarchyNode[] = [
   itemNode('4', '903240', [itemNode('4/3', 'K33608-001', [], 2)]),
 ];
 
-function serve(roots: HierarchyNode[], totalItems = roots.length) {
+function serve(roots: HierarchyNode[], totalObjects = roots.length) {
   const requested: string[] = [];
   server.use(
     http.get('/api/item-hierarchy', ({ request }) => {
@@ -69,12 +69,12 @@ function serve(roots: HierarchyNode[], totalItems = roots.length) {
       requested.push(`${page}/${size}`);
       const body: HierarchyPageResponse = {
         count: roots.length,
-        items: roots,
+        objects: roots,
         page,
         size,
-        totalItems,
-        totalPages: Math.max(1, Math.ceil(totalItems / size)),
-        hasMore: (page + 1) * size < totalItems,
+        totalObjects,
+        totalPages: Math.max(1, Math.ceil(totalObjects / size)),
+        hasMore: (page + 1) * size < totalObjects,
       };
       return HttpResponse.json(body);
     }),

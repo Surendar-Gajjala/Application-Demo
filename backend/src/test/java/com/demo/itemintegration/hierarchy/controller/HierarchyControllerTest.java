@@ -55,14 +55,14 @@ class HierarchyControllerTest {
 
         mvc.perform(get("/api/item-hierarchy"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalItems").value(292))
-                .andExpect(jsonPath("$.items[0].kind").value("ITEM"))
-                .andExpect(jsonPath("$.items[0].item.itemNumber").value("903239"))
-                .andExpect(jsonPath("$.items[0].item.itemStatus").value("Production Approved"))
-                .andExpect(jsonPath("$.items[0].qty").doesNotExist())
-                .andExpect(jsonPath("$.items[0].children[0].qty").value(0.001))
-                .andExpect(jsonPath("$.items[0].children[0].children[0].kind").value("PART"))
-                .andExpect(jsonPath("$.items[0].children[0].children[0].part.manufacturer").value("FINISAR CORPORATION"))
+                .andExpect(jsonPath("$.totalObjects").value(292))
+                .andExpect(jsonPath("$.objects[0].kind").value("ITEM"))
+                .andExpect(jsonPath("$.objects[0].item.itemNumber").value("903239"))
+                .andExpect(jsonPath("$.objects[0].item.itemStatus").value("Production Approved"))
+                .andExpect(jsonPath("$.objects[0].qty").doesNotExist())
+                .andExpect(jsonPath("$.objects[0].children[0].qty").value(0.001))
+                .andExpect(jsonPath("$.objects[0].children[0].children[0].kind").value("PART"))
+                .andExpect(jsonPath("$.objects[0].children[0].children[0].part.manufacturer").value("FINISAR CORPORATION"))
                 .andExpect(content().string(Matchers.not(Matchers.containsString("environmental_compliance"))))
                 .andExpect(content().string(Matchers.not(Matchers.containsString("item_number"))));
     }
@@ -73,8 +73,8 @@ class HierarchyControllerTest {
 
         mvc.perform(get("/api/item-hierarchy/products").param("size", "1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0]").value("903239"))
-                .andExpect(jsonPath("$.totalItems").value(292));
+                .andExpect(jsonPath("$.objects[0]").value("903239"))
+                .andExpect(jsonPath("$.totalObjects").value(292));
     }
 
     @Test
