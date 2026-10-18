@@ -1,4 +1,4 @@
-import { Box, Cpu, Factory, LayoutGrid, ListTree, Package } from 'lucide-react';
+import { Box, CircuitBoard, Cpu, Factory, LayoutGrid, ListTree, Package } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 const NAV_ITEMS = [
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/items', label: 'Items', icon: Package },
   { to: '/parts', label: 'Parts', icon: Cpu },
   { to: '/sites', label: 'Sites', icon: Factory },
+  { to: '/digikey', label: 'DigiKey Parts', icon: CircuitBoard },
 ];
 
 export function Sidebar() {

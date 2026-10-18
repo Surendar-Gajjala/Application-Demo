@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { Sidebar } from './components/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
+import { DigiKeySearchPage } from './pages/DigiKeySearchPage';
 import { ItemHierarchyPage } from './pages/ItemHierarchyPage';
 import { ItemDetailsPage } from './pages/ItemDetailsPage';
 import { ItemsPage } from './pages/ItemsPage';
@@ -23,6 +24,7 @@ export function App() {
           <Route path="/parts" element={<PartsPage />} />
           <Route path="/parts/:id" element={<PartDetailsPage />} />
           <Route path="/sites" element={<SitesPage />} />
+          <Route path="/digikey" element={<DigiKeySearchPage />} />
           <Route path="*" element={<Navigate to="/items" replace />} />
         </Routes>
       </main>

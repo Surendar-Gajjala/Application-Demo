@@ -26,7 +26,10 @@ function serveTotals(items: number, parts: number, sites: number, boms = 292) {
       return HttpResponse.json(total(items));
     }),
     http.get('/api/parts', () => HttpResponse.json(total(parts))),
-    http.get('/api/sites', () => HttpResponse.json(total(sites))),
+    // Sites now come from the Enterprise execute endpoint (POST); only the total is used here.
+    http.post('/enterprise/core/query-config-v2/execute', () =>
+      HttpResponse.json({ results: [], totalElements: sites, hasMore: sites > 1 }),
+    ),
     http.get('/api/item-hierarchy/products', () => HttpResponse.json(total(boms))),
     // The tile must never trigger the slow tree endpoint.
     http.get('/api/item-hierarchy', () => HttpResponse.json({ status: 500 }, { status: 500 })),
