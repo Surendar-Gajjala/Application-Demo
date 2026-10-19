@@ -41,6 +41,7 @@ Copy [frontend/.env.example](frontend/.env.example) to `frontend/.env` (git-igno
 |---|---|
 | `VITE_ENTERPRISE_API_BASE_URL` | Path the browser calls; default `/enterprise` (the dev proxy) |
 | `ENTERPRISE_API_TOKEN` | Bearer token for Enterprise. **Secret: only in `frontend/.env`, never in `.env.example` or Git.** Read only by the Vite dev proxy (Node side), so it never reaches the browser bundle |
+| `ENTERPRISE_API_HOST` | Enterprise origin, `https://<enterprise-host>` (https, no path). Target of the Vite dev proxy (falls back to the built-in host when empty); also read by the Netlify Edge Function |
 
 > **The hosted token expires after about 24 hours.** When it does, every tab shows "The Enterprise API token is missing or expired (401)". Put a fresh token in `frontend/.env` and restart `npm run dev`; Vite only reads `.env` at startup.
 

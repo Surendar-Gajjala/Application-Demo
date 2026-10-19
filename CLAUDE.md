@@ -47,6 +47,7 @@ cd frontend && npm run build && npm run preview  # dist/ on :4173, same /enterpr
 |---|---|
 | `VITE_ENTERPRISE_API_BASE_URL` | Base path the browser calls (default `/enterprise`) |
 | `ENTERPRISE_API_TOKEN` | Bearer token. Read only by the Vite dev proxy (Node side) in `vite.config.ts` and set as `Authorization`. Not `VITE_`-prefixed, so it never enters the bundle |
+| `ENTERPRISE_API_HOST` | Enterprise origin (https, no path). Vite proxy target (falls back to the host in `vite.config.ts` when empty); also read by the Netlify Edge Function |
 
 - `frontend/.env.example` is committed and must keep `ENTERPRISE_API_TOKEN=` empty.
 - Never print the token. To check it, decode only its `exp` claim.

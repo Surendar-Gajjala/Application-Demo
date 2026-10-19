@@ -6,6 +6,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig(({ mode }) => {
   // Load all env vars (prefix '') so the non-VITE_ token is readable Node-side only.
   const env = loadEnv(mode, process.cwd(), '');
+  // Same variable the Netlify Edge Function reads; falls back to the hosted server.
+  const enterpriseHost = env.ENTERPRISE_API_HOST?.trim() || 'https://enterprise.ztwo.app';
 
   return {
     plugins: [react(), tailwindcss()],
@@ -15,7 +17,7 @@ export default defineConfig(({ mode }) => {
         // Every view calls the Enterprise API through this same-origin path. The proxy injects
         // the Bearer token server-side so it never enters the browser bundle.
         '/enterprise': {
-          target: 'https://enterprise.ztwo.app',
+          target: enterpriseHost,
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path.replace(/^\/enterprise/, '/api/v1/platform'),
