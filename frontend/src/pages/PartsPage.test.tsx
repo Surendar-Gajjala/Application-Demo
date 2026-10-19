@@ -165,6 +165,23 @@ describe('PartsPage', () => {
     expect(alert).toHaveTextContent('The Enterprise API is unavailable (504).');
   });
 
+  it('shows the deployment proxy\'s own message for a proxy configuration error', async () => {
+    server.use(
+      http.post(EXECUTE, () =>
+        HttpResponse.json(
+          { code: 'PROXY_NOT_CONFIGURED', message: 'The Enterprise proxy is not configured: missing ENTERPRISE_API_TOKEN.' },
+          { status: 500, headers: { 'X-Enterprise-Proxy-Error': 'PROXY_NOT_CONFIGURED' } },
+        ),
+      ),
+    );
+
+    renderPage();
+
+    const alert = await screen.findByRole('alert', {}, { timeout: 4000 });
+    expect(alert).toHaveTextContent('The Enterprise proxy is not configured: missing ENTERPRISE_API_TOKEN.');
+    expect(alert).not.toHaveTextContent('unavailable (500)');
+  });
+
   it('reports an unexpected response shape instead of rendering it', async () => {
     server.use(http.post(EXECUTE, () => HttpResponse.json({ results: 'nope' })));
 

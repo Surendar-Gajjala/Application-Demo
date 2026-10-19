@@ -53,7 +53,14 @@ cd frontend && npm run build && npm run preview  # dist/ on :4173, same /enterpr
 - Hosted tokens expire after about 24 hours. The symptom is "The Enterprise API token is missing or expired (401)" on every tab. Restart `npm run dev` after editing `.env`.
 - Error messages come only from `EnterpriseQueryError`, which never includes headers or the token.
 - **Host name in docs:** write the Enterprise server as `https://<enterprise-host>/api/v1/platform/...` (for example `https://<enterprise-host>/api/v1/platform/core/data-configuration/table-configs/item-hierarchy`). The real host lives only in `frontend/vite.config.ts`; do not copy it into docs.
-- **Production:** the token proxy exists only under `npm run dev` and `npm run preview` (port 4173, which serves `dist/`). Any other deployment needs an equivalent reverse proxy that forwards `/enterprise` to `https://<enterprise-host>/api/v1/platform` and adds `Authorization`. Enterprise answers CORS preflights with `Access-Control-Allow-Origin: *`, so the proxy only exists to keep the token out of the browser; the app has no user login that could supply one.
+- **Production (Netlify):** `netlify.toml` plus the Edge Function `frontend/netlify/edge-functions/enterprise.ts` replace the Vite proxy.
+  - The function reads `ENTERPRISE_API_HOST` (https origin) and `ENTERPRISE_API_TOKEN` from the Netlify environment. Redeploy after changing them.
+  - It only calls `<host>/api/v1/platform/*` with GET/POST.
+  - It strips cookies.
+  - It times out at 38 s waiting for headers, but never while the body streams.
+  - Its own errors carry `X-Enterprise-Proxy-Error` and a `{ code, message }` body, which `enterpriseQuery.ts` shows verbatim. Enterprise responses pass through unchanged.
+  - The function is outside `src/`, so `tsc` does not check it. It runs on Deno, using web APIs only.
+- **Other hosting:** `npm run dev` / `npm run preview` (port 4173, which serves `dist/`) use the Vite proxy. Any other deployment needs an equivalent reverse proxy that forwards `/enterprise` to `https://<enterprise-host>/api/v1/platform` and adds `Authorization`. Enterprise answers CORS preflights with `Access-Control-Allow-Origin: *`, so the proxy only exists to keep the token out of the browser; the app has no user login that could supply one.
 
 ## Enterprise calls (all through `/enterprise`)
 
@@ -115,7 +122,7 @@ Before writing a mapper, look at a real hosted response with a read-only call. S
 
 - The Item Hierarchy table config's `statisticProperties` (counts by status and type) are not shown.
 - Search filters the current page only, on every tab.
-- The token proxy only exists in `npm run dev` / `npm run preview` (see Configuration).
+- The token proxy only exists in `npm run dev` / `npm run preview` and the Netlify Edge Function (see Configuration).
 
 ---
 

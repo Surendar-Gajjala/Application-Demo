@@ -66,6 +66,40 @@ npm run preview    # serves dist/ on http://localhost:4173 with the same /enterp
 
 The token is injected by the Vite proxy (`npm run dev` and `npm run preview`). Hosting `dist/` anywhere else needs an equivalent reverse proxy: forward `/enterprise` to `https://<enterprise-host>/api/v1/platform` and add the `Authorization` header. Enterprise allows CORS from any origin, so the only reason for the proxy is keeping the token out of the browser.
 
+## Deploy on Netlify
+
+[netlify.toml](netlify.toml) sets up the build:
+- It builds `frontend/` with Node 22 and publishes `frontend/dist`.
+- It serves `index.html` for page routes such as `/parts` or `/items/123`.
+
+`/enterprise/*` is handled by the Edge Function [frontend/netlify/edge-functions/enterprise.ts](frontend/netlify/edge-functions/enterprise.ts). It is the production counterpart of the Vite proxy:
+- It forwards GET/POST requests, their query string and body, to `https://<enterprise-host>/api/v1/platform/*` on the configured host only.
+- It adds the Bearer token server-side.
+- It passes Enterprise's responses through unchanged.
+
+1. In Netlify, go to **Site configuration → Environment variables** and add these with the default scopes:
+
+   | Key | Value |
+   |---|---|
+   | `ENTERPRISE_API_HOST` | `https://<enterprise-host>`: origin only, https, no path |
+   | `ENTERPRISE_API_TOKEN` | the Enterprise Bearer token (secret) |
+
+2. **Redeploy** (Deploys → Trigger deploy → Deploy site). The function only sees variable changes after a new deploy, so do this after every token renewal too.
+3. Check with `POST https://<your-site>/enterprise/core/query-config-v2/execute?page=0&size=1` and a query body from `frontend/src/queries/`. It should return 200 with `results`.
+
+Errors raised by the proxy itself have an `X-Enterprise-Proxy-Error` header, a `{ code, message }` body, and are shown as-is on the page:
+
+| Code | Meaning |
+|---|---|
+| `PROXY_NOT_CONFIGURED` | A variable is missing, or the site was not redeployed after adding it |
+| `PROXY_INVALID_HOST` | `ENTERPRISE_API_HOST` is not an https URL |
+| `UPSTREAM_TIMEOUT` | No response headers within 38 s |
+| `UPSTREAM_UNREACHABLE` | Enterprise could not be reached |
+
+Errors from Enterprise itself (for example 401 for an expired token) pass through without that header.
+
+> The deployed site has no login: anyone with its URL sees the data through your token.
+
 ## Tests
 
 ```bash

@@ -102,6 +102,12 @@ function toEnterpriseError(error: unknown): EnterpriseQueryError {
     return new EnterpriseQueryError('The Enterprise API request failed.');
   }
   const status = error.response?.status ?? null;
+  // Errors raised by the deployment's /enterprise proxy itself (not by Enterprise) carry this
+  // header and a token-free `{ code, message }` body, e.g. missing server configuration.
+  const proxyMessage = (error.response?.data as { message?: unknown } | undefined)?.message;
+  if (error.response?.headers?.['x-enterprise-proxy-error'] && typeof proxyMessage === 'string') {
+    return new EnterpriseQueryError(proxyMessage, status);
+  }
   if (status === null) {
     return new EnterpriseQueryError(
       error.code === 'ECONNABORTED'
