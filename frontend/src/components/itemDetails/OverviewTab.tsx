@@ -31,13 +31,15 @@ export function OverviewTab({ sections }: Props) {
       {sections.map((section) => {
         const isRisk = section.title === 'Risk';
         const isNotes = section.title === 'Notes';
+        // aria-labelledby takes space-separated ids, so multi-word titles need a slug.
+        const headingId = `section-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
         return (
           <section
             key={section.title}
-            aria-labelledby={`section-${section.title}`}
+            aria-labelledby={headingId}
             className={`rounded-xl border border-gray-200 bg-white ${isNotes ? 'xl:col-span-2' : ''}`}
           >
-            <h2 id={`section-${section.title}`} className="border-b border-gray-200 px-6 py-3.5 text-[17px] font-semibold text-gray-900">
+            <h2 id={headingId} className="border-b border-gray-200 px-6 py-3.5 text-[17px] font-semibold text-gray-900">
               {section.title}
             </h2>
             <dl className="divide-y divide-gray-100">

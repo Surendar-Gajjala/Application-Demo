@@ -1,7 +1,7 @@
 import type { PageResponse } from './page';
 
 /**
- * Site contract of the local API (GET /api/sites). Mirrors the backend SiteDto:
+ * Internal Site model, mapped from Enterprise `results` rows by `siteMapper.ts`:
  * internal field names only, never the hosted server's external names.
  */
 export type SiteType =

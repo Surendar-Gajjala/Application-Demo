@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 
-import { getErrorMessage } from '../../services/apiClient';
+import { getErrorMessage } from '../../services/enterpriseQuery';
 
 interface Props {
   title: string;

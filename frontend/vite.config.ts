@@ -11,14 +11,9 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     server: {
       port: 3000,
-      // Allow reading the sibling backend/ tree so the frontend can import the shared
-      // site-query.json payload without duplicating it.
-      fs: { allow: ['..'] },
       proxy: {
-        // The browser only ever talks to this origin; /api is forwarded to the local Spring Boot app.
-        '/api': 'http://localhost:8080',
-        // Sites view: forward to the Enterprise API and inject the Bearer token server-side
-        // so the token never enters the browser bundle. CORS is avoided (same-origin to the browser).
+        // Every view calls the Enterprise API through this same-origin path. The proxy injects
+        // the Bearer token server-side so it never enters the browser bundle.
         '/enterprise': {
           target: 'https://enterprise.ztwo.app',
           changeOrigin: true,

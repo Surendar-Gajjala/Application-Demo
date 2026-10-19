@@ -1,8 +1,8 @@
 import type { PageResponse } from './page';
 
 /**
- * Part contract of the local API (GET /api/parts). Mirrors the backend PartDto:
- * internal field names only, never the hosted server's external names.
+ * Internal Part model, mapped from Enterprise `results` rows by `partMapper.ts`. Internal
+ * field names only, never the hosted server's external names.
  */
 export type SourcingType = 'Off-the-shelf' | 'Custom' | 'Conflict' | 'Unknown';
 

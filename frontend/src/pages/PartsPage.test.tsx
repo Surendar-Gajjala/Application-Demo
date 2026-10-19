@@ -5,47 +5,53 @@ import { http, HttpResponse } from 'msw';
 import { MemoryRouter } from 'react-router-dom';
 
 import { server } from '../test/server';
-import type { Part, PartListResponse } from '../types/part';
 import { PartsPage } from './PartsPage';
 
-function part(overrides: Partial<Part>): Part {
+const EXECUTE = '/enterprise/core/query-config-v2/execute';
+
+/** An Enterprise `results` row, keyed by the part-query.json / ExternalPartRecord aliases. */
+function rawPart(overrides: Record<string, unknown>): Record<string, unknown> {
   return {
-    id: 1,
-    partNumber: 'FC FBMJ3216HS480NT',
+    part__id: 1,
+    part_number: 'FC FBMJ3216HS480NT',
     manufacturer: 'TAIYO YUDEN,(USA),INC',
     description: null,
-    z2PropertiesComparison: 'incomparable',
-    countryOfOrigin: 'China',
-    sourcingType: 'Off-the-shelf',
-    supplyChainRisk: 'Not Assessed',
-    lifecycleStatus: 'Unknown',
+    z2_properties_comparison: 'incomparable',
+    part__country_of_origin: 'China',
+    part__sourcing_type: 'OTS',
+    part__supply_chain_risk: '',
+    part__lifecycle__status: null,
     ...overrides,
   };
 }
 
-/** Serves `all` the way the backend does: one page per request, with totals. */
-function servePaged(all: Part[]) {
-  const requested: string[] = [];
+interface Calls {
+  execute: string[];
+  bodies: Record<string, unknown>[];
+}
+
+/** Serves `all` the way Enterprise does: one page per POST, with paging metadata. */
+function servePaged(all: Record<string, unknown>[]): Calls {
+  const calls: Calls = { execute: [], bodies: [] };
   server.use(
-    http.get('/api/parts', ({ request }) => {
+    http.post(EXECUTE, async ({ request }) => {
       const params = new URL(request.url).searchParams;
       const page = Number(params.get('page') ?? 0);
       const size = Number(params.get('size') ?? 25);
-      requested.push(`${page}/${size}`);
-      const items = all.slice(page * size, page * size + size);
-      const body: PartListResponse = {
-        count: items.length,
-        objects: items,
-        page,
-        size,
-        totalObjects: all.length,
-        totalPages: Math.max(1, Math.ceil(all.length / size)),
+      calls.execute.push(`${page}/${size}`);
+      calls.bodies.push((await request.json()) as Record<string, unknown>);
+      return HttpResponse.json({
+        properties: [],
+        results: all.slice(page * size, page * size + size),
+        pageNumber: page,
+        pageSize: size,
+        totalElements: all.length,
+        exactTotal: true,
         hasMore: (page + 1) * size < all.length,
-      };
-      return HttpResponse.json(body);
+      });
     }),
   );
-  return requested;
+  return calls;
 }
 
 function renderPage() {
@@ -62,10 +68,31 @@ function renderPage() {
 const bodyRows = () => within(screen.getByRole('table')).getAllByRole('row').slice(1);
 
 describe('PartsPage', () => {
+  it('POSTs part-query.json to the Enterprise execute endpoint', async () => {
+    const calls = servePaged([rawPart({})]);
+
+    renderPage();
+
+    expect(await screen.findByText('FC FBMJ3216HS480NT')).toBeInTheDocument();
+    expect(calls.execute).toEqual(['0/25']);
+    expect(calls.bodies[0]).toMatchObject({
+      from: { entity: 'part', alias: 'part' },
+      output: { format: 'table' },
+      context: { tableId: 'objecttype-view-part' },
+    });
+  });
+
   it('shows every part query-config property as a column', async () => {
     servePaged([
-      part({ id: 1 }),
-      part({ id: 2, partNumber: 'P-2', manufacturer: 'Murata', sourcingType: 'Custom', supplyChainRisk: 'MEDIUM', lifecycleStatus: 'Active' }),
+      rawPart({ part__id: 1 }),
+      rawPart({
+        part__id: 2,
+        part_number: 'P-2',
+        manufacturer: 'Murata',
+        part__sourcing_type: 'custom',
+        part__supply_chain_risk: 'medium',
+        part__lifecycle__status: 'ACTIVE',
+      }),
     ]);
 
     renderPage();
@@ -83,8 +110,8 @@ describe('PartsPage', () => {
     expect(screen.getByRole('contentinfo')).toHaveTextContent('1–2 of 2');
   });
 
-  it('links each part number to its part details page', async () => {
-    servePaged([part({ id: 42 })]);
+  it('links each part number to its part details page using part__id', async () => {
+    servePaged([rawPart({ part__id: 42 })]);
 
     renderPage();
 
@@ -93,7 +120,7 @@ describe('PartsPage', () => {
   });
 
   it('filters the current page by manufacturer', async () => {
-    servePaged([part({ id: 1 }), part({ id: 2, partNumber: 'P-2', manufacturer: 'Murata' })]);
+    servePaged([rawPart({ part__id: 1 }), rawPart({ part__id: 2, part_number: 'P-2', manufacturer: 'Murata' })]);
     renderPage();
     await screen.findByText('P-2');
 
@@ -103,8 +130,8 @@ describe('PartsPage', () => {
     expect(screen.getByText('P-2')).toBeInTheDocument();
   });
 
-  it('requests the next page from the server', async () => {
-    const requested = servePaged(Array.from({ length: 40 }, (_, i) => part({ id: i + 1, partNumber: `PRT-${i + 1}` })));
+  it('requests the next page from Enterprise', async () => {
+    const calls = servePaged(Array.from({ length: 40 }, (_, i) => rawPart({ part__id: i + 1, part_number: `PRT-${i + 1}` })));
     renderPage();
     await screen.findByText('PRT-1');
 
@@ -112,19 +139,38 @@ describe('PartsPage', () => {
 
     expect(await screen.findByText('PRT-26')).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toHaveTextContent('26–40 of 40');
-    expect(requested).toEqual(['0/25', '1/25']);
+    expect(calls.execute).toEqual(['0/25', '1/25']);
   });
 
-  it('shows the backend problem detail when loading fails', async () => {
+  it('uses hasMore when Enterprise reports no total', async () => {
     server.use(
-      http.get('/api/parts', () =>
-        HttpResponse.json({ status: 504, detail: 'The item data source did not respond in time.' }, { status: 504 }),
+      http.post(EXECUTE, () =>
+        HttpResponse.json({ results: [rawPart({})], pageNumber: 0, pageSize: 25, exactTotal: false, hasMore: true }),
       ),
     );
 
     renderPage();
 
+    await screen.findByText('FC FBMJ3216HS480NT');
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+  });
+
+  it('shows an error state when the Enterprise API fails', async () => {
+    server.use(http.post(EXECUTE, () => HttpResponse.json({ message: 'slow' }, { status: 504 })));
+
+    renderPage();
+
     const alert = await screen.findByRole('alert', {}, { timeout: 4000 });
     expect(alert).toHaveTextContent('Parts could not be loaded');
+    expect(alert).toHaveTextContent('The Enterprise API is unavailable (504).');
+  });
+
+  it('reports an unexpected response shape instead of rendering it', async () => {
+    server.use(http.post(EXECUTE, () => HttpResponse.json({ results: 'nope' })));
+
+    renderPage();
+
+    const alert = await screen.findByRole('alert', {}, { timeout: 4000 });
+    expect(alert).toHaveTextContent('Unexpected response from the Enterprise API.');
   });
 });

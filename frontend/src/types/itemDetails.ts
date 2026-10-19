@@ -1,6 +1,6 @@
 /**
- * Item details contracts of the local API (GET /api/items/{id}/overview | sources).
- * Sources use the Part contract (see ./part.ts).
+ * Item details models, built from the Enterprise partial-object response
+ * (`services/itemDetails.ts`). Sources use the Part model (see ./part.ts).
  */
 export interface OverviewField {
   label: string;

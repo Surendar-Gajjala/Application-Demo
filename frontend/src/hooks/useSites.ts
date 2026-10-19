@@ -7,7 +7,7 @@ export const siteKeys = {
   list: (page: number, size: number) => [...siteKeys.all, 'list', { page, size }] as const,
 };
 
-/** One page of sites; `page` is zero-based. Each page is one backend request (one hosted-server call). */
+/** One page of sites; `page` is zero-based. Each page is one Enterprise Query Config V2 request. */
 export function useSites(page: number, size: number) {
   return useQuery({
     queryKey: siteKeys.list(page, size),

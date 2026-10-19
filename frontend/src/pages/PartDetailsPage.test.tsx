@@ -4,35 +4,43 @@ import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { server } from '../test/server';
-import type { PartOverview } from '../types/partDetails';
 import { PartDetailsPage } from './PartDetailsPage';
 
-const OVERVIEW: PartOverview = {
-  id: 4332025900,
-  partNumber: 'Y5363689',
-  manufacturer: 'BRADY CORPORATION',
-  description: null,
-  sections: [
-    {
-      title: 'General',
-      fields: [
-        { label: 'Sourcing Type', value: 'Unknown', reason: null },
-        { label: 'Country of Origin', value: null, reason: null },
-      ],
-    },
-    {
-      title: 'Risk',
-      fields: [{ label: 'Availability Risk', value: 'Not Assessed', reason: 'Lifecycle unknown or not matched.' }],
-    },
-  ],
+const OBJECT = '/enterprise/core/objects/partial/:id';
+
+const wrap = (values: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(values).map(([k, value], i) => [k, { id: i, value, property_id: i }]));
+
+const PART_OBJECT = {
+  objectId: 150800,
+  objectTypeDbName: 'part',
+  properties: wrap({
+    part_number: 'MIC5159YM6-TR',
+    manufacturer: 'MCHP',
+    description: 'IC VOLT REG Positive Adjustable',
+    'part_risk.obsolescence.band': 'HIGH',
+    'part_risk.obsolescence.score': '40',
+    'part_risk.obsolescence.dominant_factor': 'MULTI_SOURCE',
+    'lifecycle.status': 'ACTIVE',
+    'lifecycle.is_at_risk': 'false',
+    'sourcing.is_sole_sourced': 'true',
+    inventory_position_weeks: '44',
+    'origin.country_of_assembly': ['TH'],
+    'parametric.operating_temp.min_c': '-40',
+    'parametric.operating_temp.max_c': '125',
+    'parametric.voltage_rating.value': '16',
+    'parametric.voltage_rating.unit': 'V',
+    'env_compliance.reach_svhc.status': 'SVHC_BELOW_THRESHOLD',
+    'env_compliance.reach_svhc.list_version': '2025-01',
+  }),
 };
 
 function serve() {
   const calls: string[] = [];
   server.use(
-    http.get('/api/parts/:id/overview', ({ params }) => {
-      calls.push(`overview:${params.id}`);
-      return HttpResponse.json(OVERVIEW);
+    http.get(OBJECT, ({ params }) => {
+      calls.push(`object:${params.id}`);
+      return HttpResponse.json(PART_OBJECT);
     }),
   );
   return calls;
@@ -52,28 +60,34 @@ function renderAt(path: string) {
 }
 
 describe('PartDetailsPage', () => {
-  it('shows the overview sections for the part id', async () => {
+  it('shows overview sections from the Enterprise object', async () => {
     const calls = serve();
 
-    renderAt('/parts/4332025900');
+    renderAt('/parts/150800');
 
-    expect(await screen.findByRole('heading', { name: 'Y5363689' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'MIC5159YM6-TR' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
-    const general = screen.getByRole('region', { name: 'General' });
-    expect(within(general).getByText('Sourcing Type')).toBeInTheDocument();
-    expect(within(general).getByText('Unknown')).toBeInTheDocument();
     const risk = screen.getByRole('region', { name: 'Risk' });
-    expect(within(risk).getByText('Not Assessed')).toBeInTheDocument();
-    expect(within(risk).getByText('Lifecycle unknown or not matched.')).toBeInTheDocument();
-    expect(calls).toEqual(['overview:4332025900']);
+    expect(within(risk).getByText('HIGH')).toBeInTheDocument();
+    expect(within(risk).getByText('Score 40 · Driven by: Multi Source')).toBeInTheDocument();
+    const lifecycle = screen.getByRole('region', { name: 'Lifecycle' });
+    expect(within(lifecycle).getByText('Active')).toBeInTheDocument();
+    expect(within(lifecycle).getByText('No')).toBeInTheDocument();
+    const sourcing = screen.getByRole('region', { name: 'Sourcing' });
+    expect(within(sourcing).getByText('Yes')).toBeInTheDocument();
+    expect(within(sourcing).getByText('44 weeks')).toBeInTheDocument();
+    const technical = screen.getByRole('region', { name: 'Technical' });
+    expect(within(technical).getByText('-40 °C to 125 °C')).toBeInTheDocument();
+    expect(within(technical).getByText('16 V')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Origin & Trade' })).getByText('TH')).toBeInTheDocument();
+    const compliance = screen.getByRole('region', { name: 'Environmental Compliance' });
+    expect(within(compliance).getByText('SVHC Below Threshold')).toBeInTheDocument();
+    expect(within(compliance).getByText('SVHC list 2025-01')).toBeInTheDocument();
+    expect(calls).toEqual(['object:150800']);
   });
 
   it('shows not found for an unknown part', async () => {
-    server.use(
-      http.get('/api/parts/:id/overview', () =>
-        HttpResponse.json({ status: 404, code: 'PART_NOT_FOUND', detail: 'No part exists with this id.' }, { status: 404 }),
-      ),
-    );
+    server.use(http.get(OBJECT, () => new HttpResponse(null, { status: 200 })));
 
     renderAt('/parts/1');
 

@@ -1,10 +1,10 @@
 import type { Site, SiteType } from '../types/site';
+import { num, text } from './enterpriseValues';
 
 /**
  * Maps one Enterprise Query Config V2 `results` row (keyed by the site-query.json
- * aliases) to the internal {@link Site} model. Mirrors the backend `SiteMapper` /
- * `ExternalValues` normalisation so the frontend and backend agree on field handling:
- * blank/empty/missing become null, numbers are coerced from numeric strings, and
+ * aliases) to the internal {@link Site} model, using the shared `enterpriseValues`
+ * normalisation: blank/empty/missing become null, numbers are coerced from numeric strings, and
  * site_type is normalised to a {@link SiteType} label. `site__id` is the record id,
  * distinct from `site_id` / `internal_site_id`.
  */
@@ -27,22 +27,6 @@ export function mapSite(raw: Record<string, unknown>): Site {
     latitude: num(raw.address_latitude),
     longitude: num(raw.address_longitude),
   };
-}
-
-/** Trimmed text, or null for null/undefined/blank. */
-function text(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  const s = String(value).trim();
-  return s === '' ? null : s;
-}
-
-/** A finite number from a JSON number or numeric string, else null. */
-function num(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  const s = text(value);
-  if (s === null) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
 }
 
 const SITE_TYPES: Record<string, SiteType> = {

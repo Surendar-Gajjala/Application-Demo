@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 
+import { EnterpriseQueryError } from '../services/enterpriseQuery';
 import { fetchItemOverview, fetchItemSources } from '../services/itemDetails';
 
 export const itemDetailKeys = {
@@ -13,7 +13,7 @@ const shared = {
   staleTime: 60_000,
   refetchOnWindowFocus: false,
   // A missing item will not appear on retry.
-  retry: (failures: number, error: unknown) => !(axios.isAxiosError(error) && error.response?.status === 404) && failures < 1,
+  retry: (failures: number, error: unknown) => !(error instanceof EnterpriseQueryError && error.status === 404) && failures < 1,
 };
 
 export function useItemOverview(itemId: number) {

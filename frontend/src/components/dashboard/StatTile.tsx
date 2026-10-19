@@ -2,7 +2,7 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import { ArrowRight, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-import { getErrorMessage } from '../../services/apiClient';
+import { getErrorMessage } from '../../services/enterpriseQuery';
 import type { PageResponse } from '../../types/page';
 
 interface Props {

@@ -1,8 +1,14 @@
+// The query-config payload (src/queries). Preserves the selected properties, output.format "table" and context.tableId "objecttype-view-part".
+import partQuery from '../queries/part-query.json';
 import type { PartListResponse } from '../types/part';
-import { apiClient } from './apiClient';
+import { executeQuery } from './enterpriseQuery';
+import { mapPart } from './partMapper';
 
-/** Fetches one page of parts. `page` is zero-based. */
-export async function fetchParts(page: number, size: number): Promise<PartListResponse> {
-  const { data } = await apiClient.get<PartListResponse>('/parts', { params: { page, size } });
-  return data;
+/**
+ * Fetches one page of parts directly from the Enterprise Query Config V2 endpoint
+ * (POST, `part-query.json` as the body), and maps `results` to the internal Part model.
+ * `page` is zero-based.
+ */
+export function fetchParts(page: number, size: number): Promise<PartListResponse> {
+  return executeQuery(partQuery, page, size, mapPart);
 }

@@ -7,32 +7,33 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { server } from '../test/server';
 import { DashboardPage } from './DashboardPage';
 
-/** A one-row page carrying only the total, as the list endpoints return for size=1. */
-const total = (totalObjects: number) => ({
-  count: Math.min(1, totalObjects),
-  objects: [],
-  page: 0,
-  size: 1,
-  totalObjects,
-  totalPages: Math.max(1, totalObjects),
-  hasMore: totalObjects > 1,
-});
+const EXECUTE = '/enterprise/core/query-config-v2/execute';
+
+/**
+ * Which listing a POSTed query-config payload is for: item, part or site, or "anchors"
+ * for the Item Hierarchy anchor query (also an item query, but distinct top-of-BOM).
+ */
+async function entityOf(request: Request): Promise<string> {
+  const body = (await request.json()) as { from?: { entity?: string }; distinct?: boolean };
+  return body.distinct ? 'anchors' : (body.from?.entity ?? '');
+}
 
 function serveTotals(items: number, parts: number, sites: number, boms = 292) {
   const sizes: string[] = [];
+  const totals: Record<string, number> = { item: items, part: parts, site: sites, anchors: boms };
   server.use(
-    http.get('/api/items', ({ request }) => {
-      sizes.push(new URL(request.url).searchParams.get('size') ?? '');
-      return HttpResponse.json(total(items));
+    // Every tile comes from the Enterprise execute endpoint (POST); only the total is used here.
+    http.post(EXECUTE, async ({ request }) => {
+      const entity = await entityOf(request);
+      if (entity === 'item') sizes.push(new URL(request.url).searchParams.get('size') ?? '');
+      const totalElements = totals[entity] ?? 0;
+      return HttpResponse.json({ results: [], totalElements, hasMore: totalElements > 1 });
     }),
-    http.get('/api/parts', () => HttpResponse.json(total(parts))),
-    // Sites now come from the Enterprise execute endpoint (POST); only the total is used here.
-    http.post('/enterprise/core/query-config-v2/execute', () =>
-      HttpResponse.json({ results: [], totalElements: sites, hasMore: sites > 1 }),
+    http.get('/enterprise/core/data-configuration/table-configs/item-hierarchy', () =>
+      HttpResponse.json({ id: 'item-hierarchy', queryConfigObject: null }),
     ),
-    http.get('/api/item-hierarchy/products', () => HttpResponse.json(total(boms))),
-    // The tile must never trigger the slow tree endpoint.
-    http.get('/api/item-hierarchy', () => HttpResponse.json({ status: 500 }, { status: 500 })),
+    // The tile must never trigger the slow graph traversal.
+    http.post('/enterprise/core/graph/match/execute', () => HttpResponse.json({ status: 500 }, { status: 500 })),
   );
   return sizes;
 }
@@ -87,15 +88,18 @@ describe('DashboardPage', () => {
   it('marks a tile unavailable when its count fails, without hiding the others', async () => {
     serveTotals(5631, 10994, 0);
     server.use(
-      http.get('/api/parts', () =>
-        HttpResponse.json({ status: 504, detail: 'The item data source did not respond in time.' }, { status: 504 }),
-      ),
+      http.post(EXECUTE, async ({ request }) => {
+        const entity = await entityOf(request);
+        if (entity === 'part') return HttpResponse.json({ message: 'timeout' }, { status: 504 });
+        const totalElements = entity === 'item' ? 5631 : entity === 'anchors' ? 292 : 0;
+        return HttpResponse.json({ results: [], totalElements, hasMore: false });
+      }),
     );
 
     renderDashboard();
 
-    expect(await within(tile(/parts/i)).findByText('Unavailable')).toBeInTheDocument();
-    expect(within(tile(/parts/i)).getByText(/did not respond in time/)).toBeInTheDocument();
+    expect(await within(tile(/parts/i)).findByText('Unavailable', {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(within(tile(/parts/i)).getByText(/Enterprise API is unavailable \(504\)/)).toBeInTheDocument();
     expect(await screen.findByTestId('Items-count')).toHaveTextContent('5,631');
   });
 });

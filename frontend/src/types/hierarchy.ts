@@ -2,8 +2,9 @@ import type { StructureRole } from './item';
 import type { PageResponse } from './page';
 
 /**
- * Item Hierarchy contract of the local API (GET /api/item-hierarchy). Mirrors the
- * backend HierarchyNodeDto: internal names only; status-like values are readable labels.
+ * Internal Item Hierarchy model, built from the Enterprise graph-match response by
+ * `services/hierarchyTree.ts`. Internal names only;
+ * status-like values are readable labels.
  */
 export interface HierarchyItem {
   itemNumber: string | null;

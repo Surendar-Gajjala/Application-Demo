@@ -3,7 +3,7 @@
 This file has two parts:
 
 - **Project guide**: how the repository is built today, how to run and test it, and the decisions made while building it. Keep it current when the code changes.
-- **Requirements** (sections 1–32): the original specification. The guide records where the implementation extends it or deviates from it.
+- **Requirements** (sections 1–32): the original specification, written for a Spring Boot backend. **The backend has since been removed**: the React frontend now calls the hosted server (Enterprise) directly through a dev proxy. Where the requirements mention the backend, its local API or "the frontend never calls the hosted server", the guide below takes precedence; the data, mapping, paging, error-handling and security rules still apply to the frontend.
 
 ---
 
@@ -12,87 +12,110 @@ This file has two parts:
 ## Layout
 
 ```text
-backend/    Spring Boot 3.3, Java 17, Maven     package com.demo.itemintegration
 frontend/   React 19, TypeScript, Tailwind 4, Vite 6, TanStack Query, React Router
 README.md   overview, configuration, run and test instructions
 ```
 
-Backend packages: `config` (central hosted-server settings), `external` (the only code that calls the hosted server, plus external DTOs and payload enums), `common` (paging, value normalisation, code labels, error handling), then one package per feature: `item`, `part`, `site`, `hierarchy`, `itemdetail`. Hosted request payloads are JSON files in `backend/src/main/resources/external-queries/`.
-
-Frontend: `src/pages` (one per tab), `src/components/table` (shared `DataTable`, `PagedEntityPage`, `PaginationFooter`, `SearchBox`, `LoadError`, cell helpers), `src/components/<feature>` (column definitions and feature components), `src/services` (axios calls to the local API), `src/hooks` (TanStack Query hooks), `src/types` (local API contracts).
+Frontend:
+- `src/queries`: the Enterprise request payloads (query-config and graph-match JSON), one file per entity or traversal.
+- `src/services`: Enterprise calls and mapping.
+  - `enterpriseQuery.ts` is the only HTTP client (axios). It provides `executeQuery`, `enterpriseGet`/`enterprisePost`, `EnterpriseQueryError` and `getErrorMessage`.
+  - `enterpriseValues.ts` holds the shared value normalisation and code labels.
+  - Per-entity mappers: `itemMapper`, `partMapper`, `siteMapper`.
+  - Hierarchy: `hierarchy.ts` and `hierarchyTree.ts`.
+  - Details pages: `objectOverview.ts` plus `itemDetails.ts` and `partDetails.ts`.
+- `src/hooks`: TanStack Query hooks.
+- `src/types`: the internal models.
+- `src/pages`: one per tab.
+- `src/components/table`: shared `DataTable`, `PagedEntityPage`, `PaginationFooter`, `SearchBox`, `LoadError` and cell helpers.
+- `src/components/<feature>`: column definitions and feature components.
 
 ## Commands
 
 ```bash
-# Backend: run from backend/ so it reads backend/.env. JAVA_HOME must be JDK 17+
-# (this machine's default JAVA_HOME is JDK 11; JDK 17 is in C:\Program Files\OpenLogic\jdk-17.0.10.7-hotspot).
-cd backend && mvn spring-boot:run          # :8080, add the jdwp agent on :5005 for debugging
-cd backend && mvn test
-
-# Frontend (Node 22.3+)
-cd frontend && npm run dev                 # :3000, proxies /api to :8080
-cd frontend && npm run typecheck && npm run test
+# Node 22.3+
+cd frontend && npm run dev                      # :3000; /enterprise is proxied to the hosted server with the token
+cd frontend && npm run typecheck && npm test
+cd frontend && npm run build && npm run preview  # dist/ on :4173, same /enterprise proxy
 ```
-
-Always run both test suites after a change. Restart the backend after changing backend code or `backend/.env`.
 
 ## Configuration and secrets
 
-Central configuration is `config/ExternalApiProperties` (prefix `external.api`), filled from environment variables or `backend/.env` (git-ignored):
+`frontend/.env` (git-ignored; copy `frontend/.env.example`):
 
 | Variable | Used for |
 |---|---|
-| `EXTERNAL_API_URL` | Query-config endpoint: Items, Parts, Sites, hierarchy anchors |
-| `EXTERNAL_API_GRAPH_URL` | Graph-match endpoint: Item Hierarchy, item Sources |
-| `EXTERNAL_API_OBJECT_URL` | Single-object endpoint: item Overview (`/{id}` is appended) |
-| `EXTERNAL_API_TOKEN` | Bearer token for all three |
+| `VITE_ENTERPRISE_API_BASE_URL` | Base path the browser calls (default `/enterprise`) |
+| `ENTERPRISE_API_TOKEN` | Bearer token. Read only by the Vite dev proxy (Node side) in `vite.config.ts` and set as `Authorization`. Not `VITE_`-prefixed, so it never enters the bundle |
 
-- The token only ever goes in `backend/.env`. `backend/.env.example` is committed and must keep `EXTERNAL_API_TOKEN=` empty.
-- Never print the token. To check it, decode only its `exp` claim. Hosted tokens expire after about 24 hours, and the symptom is a 401 from every hosted call (shown as 502 `ITEM_SOURCE_ACCESS_DENIED`).
-- `ExternalApiProperties.toString()` masks the token. Keep HTTP client wire logging off.
+- `frontend/.env.example` is committed and must keep `ENTERPRISE_API_TOKEN=` empty.
+- Never print the token. To check it, decode only its `exp` claim.
+- Hosted tokens expire after about 24 hours. The symptom is "The Enterprise API token is missing or expired (401)" on every tab. Restart `npm run dev` after editing `.env`.
+- Error messages come only from `EnterpriseQueryError`, which never includes headers or the token.
+- **Host name in docs:** write the Enterprise server as `https://<enterprise-host>/api/v1/platform/...` (for example `https://<enterprise-host>/api/v1/platform/core/data-configuration/table-configs/item-hierarchy`). The real host lives only in `frontend/vite.config.ts`; do not copy it into docs.
+- **Production:** the token proxy exists only under `npm run dev` and `npm run preview` (port 4173, which serves `dist/`). Any other deployment needs an equivalent reverse proxy that forwards `/enterprise` to `https://<enterprise-host>/api/v1/platform` and adds `Authorization`. Enterprise answers CORS preflights with `Access-Control-Allow-Origin: *`, so the proxy only exists to keep the token out of the browser; the app has no user login that could supply one.
 
-## Local API (implemented)
+## Enterprise calls (all through `/enterprise`)
 
-| Endpoint | Hosted calls per request | Notes |
+| View | Calls per page | Payload / notes |
 |---|---|---|
-| `GET /api/items?page&size` | 1 query-config | `item-query.json` |
-| `GET /api/parts?page&size` | 1 query-config | `part-query.json` |
-| `GET /api/sites?page&size` | 1 query-config | `site-query.json`; hosted environment currently has 0 sites |
-| `GET /api/item-hierarchy?page&size` | 2: anchors query + 1 graph traversal | tree of products → BOM items (qty) → sourced parts |
-| `GET /api/item-hierarchy/products?page&size` | 1 query-config | top-level product numbers only; used for the dashboard count |
-| `GET /api/items/{id}/overview` | 1 object fetch | about 60 properties grouped into sections; 404 `ITEM_NOT_FOUND` for unknown ids |
-| `GET /api/items/{id}/sources` | 1 graph traversal | the item's sourced parts, as `PartDto` |
-| `GET /api/parts/{id}/overview` | 1 object fetch | part properties grouped into sections; 404 `PART_NOT_FOUND` for unknown ids or non-part objects |
+| Items, Parts, Sites lists | 1 `POST core/query-config-v2/execute?page&size` | `item-query.json`, `part-query.json`, `site-query.json`; `results` mapped by `*Mapper.ts` |
+| Dashboard tiles | the same queries with `size=1`; the BOM tile runs config + anchors only (never the graph) | reads `totalElements` |
+| Item Hierarchy | 3: `GET core/data-configuration/table-configs/item-hierarchy` → anchor query → `POST core/graph/match/execute` | see below |
+| Item details → Overview | 1 `GET core/objects/partial/{id}` | sections in `itemDetails.ts` |
+| Item details → Sources | 1 graph match (`item-sources-graph.json`, `item_sources`, depth 1, anchored on the id) | part nodes mapped with `mapPart` rules |
+| Part details → Overview | 1 `GET core/objects/partial/{id}` | sections in `partDetails.ts` |
 
-Paged responses use `common.dto.PageResponse`: `count, objects, page (0-based), size (1–100), totalObjects, totalPages, hasMore` (`objects` holds the rows for any entity). All errors go through `common.error.GlobalExceptionHandler` as RFC 7807 problems with a stable `code` and no upstream details.
+**Item Hierarchy:**
+1. The table config currently returns `queryConfigObject: null`, so the anchor query is `item-hierarchy-anchors.json`. A query configured in the table config is used if one appears.
+2. The anchor query (top of `item_bom`, scope `516`, distinct, ascending) selects `item.item_number AS anchor` and `item.id AS item__id`. Rows with only a number are resolved with one `item.item_number IN (...)` lookup in the same scope. Only ids reach the graph.
+3. The graph match is `item-hierarchy-graph.json` with `anchorProperty: "id"` and the ids (as strings) set at runtime. Batches of 25 anchors run in parallel and are merged by node/edge id.
+4. The graph is slow (≈30–40 s and ≈2 MB for 12 products), so its timeout is 180 s.
+5. `hierarchyTree.ts` builds the tree from the edges.
 
-## Decisions that extend or differ from the requirements
+Scope `516` replaced `4332013722`, which returns 0 anchors in the current data environment.
 
-- **"One API call" means one hosted call per local request, never one per row.** Lists page on the server (the hosted API returns `totalElements`); the frontend never loads the whole dataset.
-- **Item Hierarchy needs two hosted calls per page** (anchors, then one graph traversal for all of them), as specified in the hierarchy requirements. `item_bom` is many-to-many, so a shared item is repeated under each parent with its own qty; each occurrence has a unique `key` (path of node ids). Parts are shown inside their item's row (Part Number / Manufacturer columns), not as tree rows.
-- **Query payloads live in the backend**, one file per entity or traversal, registered in `external.ExternalQuery` or `external.GraphQuery`. The frontend never sees external field names or payloads.
-- **Graph traversals for one item anchor on its id** (`anchorProperty: "id"`), so a tab needs no extra call to look up the item number.
-- **IDs are `Long`** even where the spec says Int: hosted ids exceed the int range.
-- **Display labels:** status-like codes become readable labels in the backend via `common.mapping.CodeLabels` (for example `PRODN_APPROVED` → Production Approved, `N_A` → N/A). Unknown codes pass through unchanged. Entity enums (`SourcingType`, `SupplyChainRisk`, `LifecycleStatus`, `SiteType`, `AvailabilityRisk`) serialise as their spec labels.
-- **The hosted object endpoint returns an empty 200 for an unknown id.** `fetchObject` returns `Optional.empty()`, and the service turns that (or a wrong-type object) into 404.
-- **Item and part Overview tabs share one builder.** `itemdetail.mapper.ObjectOverviewMapper` holds the `Kind`/`Spec`/`SectionSpec` machinery and `build(...)`; `ItemOverviewMapper` and `partdetail.mapper.PartOverviewMapper` each supply only their section/field table. Sections/fields use the shared `OverviewSection`/`OverviewField` records. The part Overview is reached by clicking a **Part Number** anywhere (Parts table, item Sources tab, Item Hierarchy part rows) via `partLink` in `components/table/cells.tsx`, which routes to `/parts/:id` (`PartDetailsPage`, Overview only).
-- **Removed on request:** the item details "Where Used" tab (item_bom ancestors), the Add Item button, the Actions and ID columns, and the "Go to page" box (from every table footer; Previous/Next and page numbers remain).
+Pages use `types/page.ts` `PageResponse`: `count, objects, page (0-based), size, totalObjects, totalPages, hasMore`. `totalPages` is null when there is no exact total, and the footer then uses `hasMore`.
+
+## Decisions
+
+- **One hosted call per page, never one per row.** Lists page on the server; the frontend never loads the whole dataset.
+- **Item Hierarchy:** `item_bom` is many-to-many, so a shared item is repeated under each parent with its own qty. Each occurrence has a unique `key` (path of node ids). Parts are shown inside their item's row (Part Number / Manufacturer columns), not as tree rows. Cycles are cut, and depth is limited to the traversal's `maxDepth` (6).
+- **Display labels:** status-like codes become readable labels.
+  - `codeLabel` in `enterpriseValues.ts` handles known codes, e.g. `PRODN_APPROVED` → Production Approved, `N_A` → N/A.
+  - Other codes are title-cased by `humanizeCode` in `objectOverview.ts`, e.g. `NON_COMPLIANT` → Non Compliant. Codes of 3 characters or fewer (US, EXW, Z2) stay as-is.
+  - Entity enums (`SourcingType`, `SupplyChainRisk`, `LifecycleStatus`, `SiteType`, `AvailabilityRisk`) keep their spec labels.
+- **The object endpoint returns an empty 200 for an unknown id.** `fetchObject` turns that, or an object of the wrong type, into an `EnterpriseQueryError` with status 404 ("No item exists with this id."). The details hooks do not retry 404s.
+- **Overview sections follow the live schema.** The item and part field tables (`itemDetails.ts`, `partDetails.ts`) name the properties the objects actually return, for example:
+  - `item_risk.*` / `part_risk.*` (band + score)
+  - `env_compliance.*.status`
+  - `multi_sourcing.*`, `geographic_concentration.*`
+  - `lifecycle.*`, `obsolescence.*`, `origin.*`, `trade_codes.*`, `qualifications.*`, `parametric.*`
+
+  The original spec's fields (`item_status`, `revision`, `availability_risk`, `environmental_compliance.*`, `lifecycle_metadata.*`) do not exist in this environment. In the Risk section a band shows as a badge, with "Score N · Driven by: …" as its reason line.
+- **Item Sources** selects only part properties that exist (`part.z2_properties_comparison` does not, and made the query fail with 400). Sourcing type and supply chain risk show their defaults (Unknown / Not Assessed).
+- **IDs are numbers** (hosted ids exceed 32-bit int but are safe JS integers).
+- **Removed on request:** the backend, the DigiKey integration, the item details "Where Used" tab, the Add Item button, the Actions and ID columns, and the "Go to page" box (Previous/Next and page numbers remain).
 
 ## How to add an entity or tab
 
-1. Add the payload JSON under `external-queries/` and a constant in `ExternalQuery` (or `GraphQuery`).
-2. Add an external record DTO in `external/dto` whose `@JsonProperty` names are the hosted aliases. External names live only there.
-3. Add the model, DTO and mapper (reuse `ExternalValues`, `CodeLabels`, and existing enum mappers), then the service (one client call, return `PageResponse`) and the controller (`@Min/@Max(PageResponse.MAX_SIZE)` paging).
-4. Frontend: add a type, service, hook and column list, then a page built on `PagedEntityPage`; add the route in `App.tsx` and the link in `Sidebar.tsx`.
-5. Add tests on both sides, using a real hosted response shape where possible.
+1. Add the payload JSON under `src/queries/`.
+2. Add the internal model in `src/types`, a mapper in `src/services`, and a service built on `executeQuery` (or `enterprisePost` for a graph match).
+   - Reuse `enterpriseValues.ts` and the existing enum mappers.
+   - External names live only in the mapper and the query file.
+3. Add a hook, a column list and a page built on `PagedEntityPage`. Then add the route in `App.tsx` and the link in `Sidebar.tsx`.
+4. Add MSW tests that use a real response shape.
 
-Before writing a mapper, look at a real hosted response with a read-only call: several shapes differed from the samples (for example ODM values arrive as strings like `"[\"true\"]"`).
+Before writing a mapper, look at a real hosted response with a read-only call. Several shapes differed from the samples and from the original spec, for example:
+- ODM values arrive as strings like `"[\"true\"]"`.
+- Object properties are wrapped as `{ value, … }`.
+- Graph nodes key nested properties by their dotted name.
 
 ## Known gaps
 
 - The Item Hierarchy table config's `statisticProperties` (counts by status and type) are not shown.
 - Search filters the current page only, on every tab.
-- `backend/src/main/resources/static/index.html` is the original single-page table from before the React app; it is unused by the frontend.
+- The token proxy only exists in `npm run dev` / `npm run preview` (see Configuration).
 
 ---
 

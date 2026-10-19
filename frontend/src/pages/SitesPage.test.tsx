@@ -34,7 +34,7 @@ function rawSite(overrides: Record<string, unknown>): Record<string, unknown> {
 
 /** Serves one page per POST, Enterprise-envelope shaped, and records what was called. */
 function serve(all: Record<string, unknown>[]) {
-  const calls: { execute: string[]; apiSites: number } = { execute: [], apiSites: 0 };
+  const calls: { execute: string[] } = { execute: [] };
   server.use(
     http.post(EXECUTE, async ({ request }) => {
       const params = new URL(request.url).searchParams;
@@ -52,11 +52,6 @@ function serve(all: Record<string, unknown>[]) {
         totalElements: all.length,
         hasMore: (page + 1) * size < all.length,
       });
-    }),
-    // If the Sites view regresses to the local endpoint, record it so the test fails.
-    http.get('/api/sites', () => {
-      calls.apiSites += 1;
-      return HttpResponse.json({ count: 0, objects: [], page: 0, size: 25, totalObjects: 0, totalPages: 1, hasMore: false });
     }),
   );
   return calls;
@@ -95,7 +90,6 @@ describe('SitesPage', () => {
     expect(screen.getByText('HQ')).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toHaveTextContent('1–2 of 2');
     expect(calls.execute).toEqual(['0/25']);
-    expect(calls.apiSites).toBe(0);
   });
 
   it('filters the current page by location', async () => {

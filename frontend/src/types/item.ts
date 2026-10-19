@@ -1,8 +1,8 @@
 import type { PageResponse } from './page';
 
 /**
- * Item contract of the local API (GET /api/items). Mirrors the backend ItemDto:
- * internal field names only, never the hosted server's external names.
+ * Internal Item model, mapped from Enterprise `results` rows by `itemMapper.ts`. Internal
+ * field names only, never the hosted server's external names.
  */
 export type StructureRole = 'ITEM' | 'BOM';
 

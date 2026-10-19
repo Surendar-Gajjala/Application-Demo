@@ -1,8 +1,8 @@
 import type { OverviewSection } from './itemDetails';
 
 /**
- * Part details contract of the local API (GET /api/parts/{id}/overview). Reuses the
- * shared overview section/field shape (see ./itemDetails.ts).
+ * Part details model, built from the Enterprise partial-object response
+ * (`services/partDetails.ts`). Reuses the shared overview section/field shape (see ./itemDetails.ts).
  */
 export interface PartOverview {
   id: number;
